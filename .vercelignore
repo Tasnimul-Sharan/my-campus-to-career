@@ -1,0 +1,18 @@
+# Workstation data and credentials must never be uploaded by Vercel CLI.
+.local/
+.env
+.env.*
+!.env.example
+
+# Dependencies, generated output and local tooling state.
+node_modules/
+.next/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+*.tsbuildinfo
+apps/api/generated/
+.git/
+.vercel/

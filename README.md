@@ -107,3 +107,38 @@ Use HTTPS with secure session cookies, unique secrets, production SMTP, persiste
 
 Local setup is for development. Real email, domain configuration, production hosting and live payment integration must be configured and verified before public launch.
 # my-campus-to-career
+
+## Deploy the frontend with Vercel CLI
+
+Use the existing linked Vercel project. Run the CLI from this repository root,
+not from `apps/web`. Configure the project's Build and Deployment settings:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `apps/web` |
+| Framework Preset | Next.js |
+| Build Command | `npm run build` |
+| Install Command | Automatic/default |
+| Output Directory | Next.js default |
+| Node.js | `24.x` |
+
+The repository-root build includes the NestJS API and is not the frontend
+build target. A fresh API build requires Prisma generation; it belongs to the
+separate backend deployment.
+
+Keep `.vercelignore` in place. Vercel CLI does not use `.gitignore` as its upload
+filter, so the explicit rules exclude `.local/`, environment files, dependencies
+and generated output while keeping workspace manifests and the root lockfile.
+
+Set `API_ORIGIN` in the Vercel Production environment to the actual hosted API
+origin, without `/api/v1`. Rebuild after changing it. Until the API is hosted,
+public pages can render but account/profile API operations will not work.
+
+After confirming the existing project settings, deploy from the repository root:
+
+```bash
+vercel --prod --scope tasnimulsharans-projects
+```
+
+Use [Vercel monorepo guidance](https://vercel.com/docs/monorepos) and
+[CLI upload exclusions](https://vercel.com/docs/deployments/vercel-ignore).
