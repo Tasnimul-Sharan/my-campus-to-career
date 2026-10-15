@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String     @db.VarChar(100)
+  email           String     @unique @db.VarChar(254)
+  passwordHash    String
+  role            Role       @default(STUDENT)
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  authVersion     Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  profile         StudentProfile?
+  tokens          AuthToken[]
+  auditLogs       AuditLog[] @relation("AuditActor")
+
+  @@index([role, createdAt])
+}
+
+model StudentProfile {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @unique @db.Uuid
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone       String      @default("") @db.VarChar(30)
+  city        String      @default("") @db.VarChar(100)
+  objective   String      @default("") @db.VarChar(1000)
+  university  String      @default("") @db.VarChar(150)
+  department  String      @default("") @db.VarChar(100)
+  semester    String      @default("") @db.VarChar(30)
+  degree      String      @default("") @db.VarChar(100)
+  passingYear Int?
+  socialLinks Json        @default("{}")
+  activities  String      @default("") @db.VarChar(2000)
+  educations  Education[]
+  skills      Skill[]
+  updatedAt   DateTime    @updatedAt
+}
+
+model Education {
+  id          String         @id @default(uuid()) @db.Uuid
+  profileId   String         @db.Uuid
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  institution String         @db.VarChar(150)
+  degree      String         @db.VarChar(100)
+  field       String         @default("") @db.VarChar(100)
+  startYear   Int?
+  endYear     Int?
+
+  @@index([profileId])
+}
+
+model Skill {
+  id        String         @id @default(uuid()) @db.Uuid
+  profileId String         @db.Uuid
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String         @db.VarChar(60)
+
+  @@unique([profileId, name])
+}
+
+model AuthToken {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String        @unique @db.VarChar(64)
+  type      AuthTokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, type])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String   @db.Uuid
+  actor     User     @relation("AuditActor", fields: [actorId], references: [id])
+  action    String   @db.VarChar(100)
+  targetId  String   @db.Uuid
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
