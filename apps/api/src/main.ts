@@ -12,6 +12,7 @@ import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app';
 import { config } from './config';
 import { csrfProtection } from './security';
+import { MailDeliveryError } from './mail-delivery';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -51,4 +52,9 @@ async function bootstrap() {
   await app.listen(config.port, config.host);
   console.log(`Campus API ready at http://${config.host}:${config.port}/api/v1`);
 }
-bootstrap().catch(() => { console.error('API startup failed. Check database, session, origin and email configuration.'); process.exit(1); });
+bootstrap().catch(error => {
+  console.error(error instanceof MailDeliveryError
+    ? `API startup failed. ${error.message}`
+    : 'API startup failed. Check database, session, origin and email configuration.');
+  process.exit(1);
+});

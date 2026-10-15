@@ -18,8 +18,8 @@ export function loadConfig() {
   const appOrigin = appUrl.origin;
   if (production && !appOrigin.startsWith('https://')) throw new Error('Production APP_ORIGIN must use HTTPS.');
   const emailMode = process.env.MAIL_MODE || process.env.EMAIL_MODE || 'file';
-  if (!['file', 'smtp'].includes(emailMode)) throw new Error('MAIL_MODE must be file or smtp.');
-  if (production && emailMode !== 'smtp') throw new Error('Production requires MAIL_MODE=smtp.');
+  if (!['file', 'smtp', 'brevo'].includes(emailMode)) throw new Error('MAIL_MODE must be file, smtp or brevo.');
+  if (production && emailMode === 'file') throw new Error('Production requires MAIL_MODE=smtp or MAIL_MODE=brevo.');
   const sessionDriver = process.env.SESSION_DRIVER || 'postgres';
   if (!['postgres', 'redis'].includes(sessionDriver)) throw new Error('SESSION_DRIVER must be postgres or redis.');
   const redisUrl = sessionDriver === 'redis' ? required('REDIS_URL') : undefined;
@@ -28,10 +28,16 @@ export function loadConfig() {
     auth: { user: required('SMTP_USER'), pass: required('SMTP_PASSWORD') }, from: process.env.MAIL_FROM || required('EMAIL_FROM'),
   } : undefined;
   if (smtp && (!Number.isInteger(smtp.port) || smtp.port < 1 || smtp.port > 65535)) throw new Error('Invalid SMTP_PORT.');
+  const brevo = emailMode === 'brevo' ? {
+    apiKey: required('BREVO_API_KEY'), from: required('MAIL_FROM'),
+  } : undefined;
+  if (brevo && !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(brevo.from)) {
+    throw new Error('Brevo MAIL_FROM must be a plain verified email address, without a display name.');
+  }
   const port = Number(process.env.API_PORT || process.env.PORT || 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid API_PORT.');
-  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, port,
-    host: process.env.API_HOST || process.env.HOST || '127.0.0.1', mailOutboxDir: resolve(process.env.MAIL_OUTBOX_DIR || '../../.local/mail'),
+  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, brevo, port,
+    host: process.env.API_HOST || process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1'), mailOutboxDir: resolve(process.env.MAIL_OUTBOX_DIR || '../../.local/mail'),
     sessionMaxAge: 1000 * 60 * 60 * 24 * 7 };
 }
 
