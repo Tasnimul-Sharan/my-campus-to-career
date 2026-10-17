@@ -20,6 +20,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspace=@campus/api",
     "test:mail": "npm run test:mail --workspace=@campus/api",
+    "test:gmail-auth": "node --test scripts/tests/gmail-oauth.test.mjs",
+    "gmail:authorize": "node scripts/gmail-authorize.mjs",
     "test:integration": "node scripts/test-integration.mjs",
     "generate": "npm run prisma:generate --workspace=@campus/api"
   }

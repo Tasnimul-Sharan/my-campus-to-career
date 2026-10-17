@@ -56,7 +56,7 @@ The compose file runs PostgreSQL, Redis and Mailpit. `SESSION_DRIVER=postgres` r
 5. Sign in with the admin account configured for the seed to inspect the admin dashboard.
 6. Test logout and password reset using the generated development email.
 
-Development email is a local testing transport. It does not send messages to a real inbox. Production requires a real email provider: Brevo over HTTPS or a configured SMTP service. File delivery is development-only. The admin account should use a different email address from the student account used for testing.
+Development email is a local testing transport. It does not send messages to a real inbox. Production on Render Free uses the Gmail API over HTTPS with one personal Gmail sender. Follow the [Gmail setup guide](docs/gmail-setup.md) to authorize that account and generate the required private settings. SMTP remains available on hosts that permit its ports. File delivery is development-only. The admin account should use a different email address from the student account used for testing.
 
 ## Project layout
 
@@ -91,10 +91,11 @@ Run these checks from the root directory:
 npm run typecheck
 npm run build
 npm run test:mail
+npm run test:gmail-auth
 npm run test:integration
 ```
 
-`npm run test:mail` runs focused email transport/configuration tests with mocked provider requests; it does not send email or require live provider credentials.
+`npm run test:mail` runs focused email transport/configuration tests with mocked provider requests. `npm run test:gmail-auth` tests the local OAuth helper with mocked exchanges and local callbacks. Neither command sends email or requires live Google credentials or consent.
 
 Run integration tests in a second terminal while the database and API are running. They require the API's generated `.env`, `MAIL_MODE=file`, and a seeded admin whose `ADMIN_EMAIL`/`ADMIN_PASSWORD` match those settings. `npm run test:integration` verifies the local API health and rejects nonlocal targets. To change the local API target, set `TEST_API_ORIGIN` to its origin without `/api/v1`.
 
@@ -106,11 +107,11 @@ See [architecture](docs/architecture.md) for the request flow, data boundaries a
 
 ## Production configuration
 
-Use HTTPS with secure session cookies, unique secrets, a real email provider (Brevo HTTPS API or SMTP), persistent PostgreSQL and backups. Keep credentials outside source control. Apply reviewed Prisma migrations during deployment and run the web and API through a process manager or managed hosting platform. Configure Redis explicitly before selecting `SESSION_DRIVER=redis`.
+Use HTTPS with secure session cookies, unique secrets, a configured Gmail API sender (or SMTP on a compatible host), persistent PostgreSQL and backups. Keep credentials outside source control. Apply reviewed Prisma migrations during deployment and run the web and API through a process manager or managed hosting platform. Configure Redis explicitly before selecting `SESSION_DRIVER=redis`.
 
-Local setup is for development. Real email, domain configuration, production hosting and live payment integration must be configured and verified before public launch.
+Local setup is for development. Configure and verify real email and durable production hosting before public launch. The personal Gmail setup needs no owned domain or DNS changes; account limits and Google OAuth requirements still apply. Live payment integration belongs to a later phase.
 
-For the API service, follow the [Render deployment guide](docs/render-deployment.md). It covers Brevo email over HTTPS on Render Free, the required environment variables, migrations, and the Vercel connection.
+For the API service, follow the [Render deployment guide](docs/render-deployment.md). It covers Gmail email over HTTPS on Render Free, the required environment variables, migrations, and the Vercel connection. Start with the [Gmail setup guide](docs/gmail-setup.md) for Google Cloud and the local authorization helper (`npm run gmail:authorize -- --sender your-account@gmail.com`). Students keep using the existing email/password sign-in; only the sender owner grants Google access.
 # my-campus-to-career
 
 ## Deploy the frontend with Vercel CLI

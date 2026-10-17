@@ -18,8 +18,8 @@ export function loadConfig() {
   const appOrigin = appUrl.origin;
   if (production && !appOrigin.startsWith('https://')) throw new Error('Production APP_ORIGIN must use HTTPS.');
   const emailMode = process.env.MAIL_MODE || process.env.EMAIL_MODE || 'file';
-  if (!['file', 'smtp', 'brevo'].includes(emailMode)) throw new Error('MAIL_MODE must be file, smtp or brevo.');
-  if (production && emailMode === 'file') throw new Error('Production requires MAIL_MODE=smtp or MAIL_MODE=brevo.');
+  if (!['file', 'smtp', 'gmail'].includes(emailMode)) throw new Error('MAIL_MODE must be file, smtp or gmail.');
+  if (production && emailMode === 'file') throw new Error('Production requires MAIL_MODE=smtp or MAIL_MODE=gmail.');
   const sessionDriver = process.env.SESSION_DRIVER || 'postgres';
   if (!['postgres', 'redis'].includes(sessionDriver)) throw new Error('SESSION_DRIVER must be postgres or redis.');
   const redisUrl = sessionDriver === 'redis' ? required('REDIS_URL') : undefined;
@@ -28,15 +28,16 @@ export function loadConfig() {
     auth: { user: required('SMTP_USER'), pass: required('SMTP_PASSWORD') }, from: process.env.MAIL_FROM || required('EMAIL_FROM'),
   } : undefined;
   if (smtp && (!Number.isInteger(smtp.port) || smtp.port < 1 || smtp.port > 65535)) throw new Error('Invalid SMTP_PORT.');
-  const brevo = emailMode === 'brevo' ? {
-    apiKey: required('BREVO_API_KEY'), from: required('MAIL_FROM'),
+  const gmail = emailMode === 'gmail' ? {
+    clientId: required('GMAIL_CLIENT_ID'), clientSecret: required('GMAIL_CLIENT_SECRET'),
+    refreshToken: required('GMAIL_REFRESH_TOKEN'), from: required('MAIL_FROM'),
   } : undefined;
-  if (brevo && !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(brevo.from)) {
-    throw new Error('Brevo MAIL_FROM must be a plain verified email address, without a display name.');
+  if (gmail && !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(gmail.from)) {
+    throw new Error('Gmail MAIL_FROM must be a plain email address for the authorized account, without a display name.');
   }
   const port = Number(process.env.API_PORT || process.env.PORT || 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid API_PORT.');
-  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, brevo, port,
+  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, gmail, port,
     host: process.env.API_HOST || process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1'), mailOutboxDir: resolve(process.env.MAIL_OUTBOX_DIR || '../../.local/mail'),
     sessionMaxAge: 1000 * 60 * 60 * 24 * 7 };
 }

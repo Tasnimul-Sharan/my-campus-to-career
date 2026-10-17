@@ -2,25 +2,37 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-// Isolate these tests from a developer's .env, database, and email credentials.
-const fakeKey = 'isolated-test-brevo-api-key';
-const sender = 'hello@campus.example';
-const settings = { apiKey: fakeKey, from: sender };
+// These tests use invented credentials and cannot contact a database or email provider.
+const sender = 'campus-mail-test@gmail.com';
+const recipient = 'private-student@campus.example';
+const clientId = 'isolated-gmail-client-id.apps.googleusercontent.com';
+const clientSecret = 'isolated-gmail-client-secret';
+const refreshToken = 'isolated-gmail-refresh-token';
+const accessToken = 'isolated-gmail-access-token';
+const settings = { clientId, clientSecret, refreshToken, from: sender };
+const tokenEndpoint = 'https://oauth2.googleapis.com/token';
+const sendEndpoint = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 const environment = {
   NODE_ENV: 'production',
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:1/test',
   SESSION_SECRET: 'isolated-mail-tests-session-secret-0123456789',
   APP_ORIGIN: 'https://campus.example',
   SESSION_DRIVER: 'postgres',
-  MAIL_MODE: 'brevo',
-  BREVO_API_KEY: fakeKey,
+  MAIL_MODE: 'gmail',
+  GMAIL_CLIENT_ID: clientId,
+  GMAIL_CLIENT_SECRET: clientSecret,
+  GMAIL_REFRESH_TOKEN: refreshToken,
   MAIL_FROM: sender,
   DOTENV_CONFIG_PATH: fileURLToPath(new URL(`.mail-tests-no-env-${process.pid}`, import.meta.url)),
 };
 const clearedVariables = [
   'EMAIL_MODE', 'EMAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE',
   'SMTP_USER', 'SMTP_PASSWORD', 'API_PORT', 'PORT', 'API_HOST', 'HOST',
+  'BREVO_API_KEY', 'MAIL_OUTBOX_DIR',
 ];
 function resetEnvironment() {
   for (const key of clearedVariables) delete process.env[key];
@@ -29,59 +41,102 @@ function resetEnvironment() {
 resetEnvironment();
 const require = createRequire(import.meta.url);
 const { config, loadConfig } = require('../dist/config.js');
-const { MailDeliveryError, verifyBrevo, sendBrevoEmail } = require('../dist/mail-delivery.js');
+const { MailDeliveryError, GmailDelivery } = require('../dist/mail-delivery.js');
 const { MailService } = require('../dist/mail.js');
 const nodemailer = require('nodemailer');
-test.beforeEach(resetEnvironment);
+const { Logger } = require('@nestjs/common');
+test.beforeEach(t => {
+  resetEnvironment();
+  t.mock.method(globalThis, 'fetch', () => assert.fail('Mail unit tests must not contact external services.'));
+});
 
 function response(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
-
-function requestHeaders(options) {
-  const headers = new Headers(options.headers);
-  assert.equal(headers.get('api-key'), fakeKey);
-  assert.ok(options.signal instanceof AbortSignal, 'Email requests must have a bounded cancellation signal.');
-  return headers;
+function tokenResponse(overrides = {}) {
+  return response({ access_token: accessToken, expires_in: 3600, token_type: 'Bearer', ...overrides });
 }
-
+function checkRequest(options) {
+  assert.equal(options.method, 'POST');
+  assert.equal(options.redirect, 'error', 'OAuth credentials and mail must not follow redirects.');
+  assert.ok(options.signal instanceof AbortSignal, 'HTTPS requests must have bounded cancellation signals.');
+  return new Headers(options.headers);
+}
 function errorStrings(error, seen = new Set()) {
   if (typeof error === 'string') return error;
   if (!error || typeof error !== 'object' || seen.has(error)) return '';
   seen.add(error);
   return Object.getOwnPropertyNames(error).map(key => errorStrings(error[key], seen)).join('\n');
 }
-
 async function rejectsSafely(action, forbidden = []) {
+  let rejection;
   await assert.rejects(action, error => {
-    assert.ok(error instanceof MailDeliveryError, 'Failures should use the safe email error type.');
+    rejection = error;
+    assert.ok(error instanceof MailDeliveryError, 'Mail failures must use the safe error type.');
     const details = errorStrings(error);
-    for (const secret of [fakeKey, ...forbidden]) {
-      assert.ok(!details.includes(secret), 'Email errors must not include provider bodies, credentials, or private links.');
+    for (const secret of [clientId, clientSecret, refreshToken, accessToken, sender, recipient, ...forbidden]) {
+      assert.ok(!details.includes(secret), 'Mail errors must not expose credentials, addresses, provider bodies, or private links.');
     }
+    assert.equal(error.cause, undefined, 'Unsafe provider and network errors must not survive as causes.');
     return true;
   });
+  return rejection;
+}
+function decodeQuotedPrintable(text) {
+  const binary = text.replace(/=\r?\n/g, '').replace(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  return Buffer.from(binary, 'latin1').toString('utf8');
+}
+function decodeHeader(value) {
+  return value.replace(/(\?=)\s+(=\?)/g, '$1$2').replace(/=\?utf-8\?([bq])\?([^?]*)\?=/gi, (_, encoding, content) => encoding.toLowerCase() === 'b'
+    ? Buffer.from(content, 'base64').toString('utf8')
+    : decodeQuotedPrintable(content.replace(/_/g, ' ')));
+}
+function decodeMessage(raw) {
+  assert.equal(typeof raw, 'string');
+  assert.match(raw, /^[A-Za-z0-9_-]+$/, 'Gmail raw messages must use unpadded base64url encoding.');
+  const mime = Buffer.from(raw, 'base64url').toString('utf8');
+  const boundary = mime.indexOf('\r\n\r\n');
+  assert.ok(boundary > 0, 'MIME headers and body must be separated by CRLF.');
+  const headerText = mime.slice(0, boundary);
+  assert.doesNotMatch(headerText, /(?<!\r)\n/, 'MIME headers must use CRLF line endings.');
+  const headers = new Map(headerText.replace(/\r\n[ \t]+/g, ' ').split('\r\n').map(line => {
+    const colon = line.indexOf(':');
+    assert.ok(colon > 0);
+    return [line.slice(0, colon).toLowerCase(), line.slice(colon + 1).trim()];
+  }));
+  let text = mime.slice(boundary + 4);
+  if (headers.get('content-transfer-encoding')?.toLowerCase() === 'base64') text = Buffer.from(text, 'base64').toString('utf8');
+  if (headers.get('content-transfer-encoding')?.toLowerCase() === 'quoted-printable') text = decodeQuotedPrintable(text);
+  return { headers, subject: decodeHeader(headers.get('subject') ?? ''), text: text.replace(/\r\n/g, '\n').trimEnd(), mime };
+}
+function preserveConfig(t, changes) {
+  const previous = { ...config };
+  t.after(() => Object.assign(config, previous));
+  Object.assign(config, changes);
 }
 
-test('Production Brevo configuration works without SMTP credentials', () => {
-  const config = loadConfig();
-  assert.equal(config.production, true);
-  assert.equal(config.emailMode, 'brevo');
-  assert.equal(config.smtp, undefined);
+test('Production Gmail configuration requires no SMTP credentials', () => {
+  const loaded = loadConfig();
+  assert.equal(loaded.production, true);
+  assert.equal(loaded.emailMode, 'gmail');
+  assert.deepEqual(loaded.gmail, settings);
+  assert.equal(loaded.smtp, undefined);
+  assert.equal(loaded.brevo, undefined);
 });
 
-test('Brevo configuration requires an API key and sender address', async t => {
-  for (const key of ['BREVO_API_KEY', 'MAIL_FROM']) {
-    await t.test(`missing ${key} is rejected`, () => {
-      resetEnvironment();
+test('Gmail configuration requires OAuth credentials and a sender address', async t => {
+  for (const key of ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'MAIL_FROM']) {
+    await t.test(key, () => {
       delete process.env[key];
+      assert.throws(() => loadConfig(), new RegExp(key));
+      process.env[key] = '   ';
       assert.throws(() => loadConfig(), new RegExp(key));
     });
   }
 });
 
-test('Brevo sender must be a plain email address, without header injection', async t => {
-  for (const from of ['not-an-email', 'Campus <hello@campus.example>', 'hello@campus.example\r\nBcc: private@campus.example']) {
+test('Gmail sender must be a plain email address without header injection', async t => {
+  for (const from of ['not-an-email', 'Campus <campus-mail-test@gmail.com>', `${sender}\r\nBcc: ${recipient}`]) {
     await t.test(JSON.stringify(from), () => {
       process.env.MAIL_FROM = from;
       assert.throws(() => loadConfig(), /MAIL_FROM|sender|email/i);
@@ -89,165 +144,339 @@ test('Brevo sender must be a plain email address, without header injection', asy
   }
 });
 
-test('Production still rejects local file email mode', () => {
+test('Removed Brevo mode and production file mode are rejected', () => {
+  process.env.MAIL_MODE = 'brevo';
+  process.env.BREVO_API_KEY = 'obsolete-test-provider-key';
+  assert.throws(() => loadConfig(), /MAIL_MODE/);
   process.env.MAIL_MODE = 'file';
   assert.throws(() => loadConfig(), /production/i);
 });
 
-test('Brevo startup check uses HTTPS account GET without sending an email', async t => {
-  const fetch = t.mock.method(globalThis, 'fetch', async (url, options) => {
-    assert.equal(String(url), 'https://api.brevo.com/v3/account');
-    assert.equal(options.method ?? 'GET', 'GET');
-    requestHeaders(options);
-    assert.equal(options.body, undefined);
-    return response({ relay: { enabled: true } });
-  });
-  await verifyBrevo(settings);
-  assert.equal(fetch.mock.callCount(), 1);
+test('Development file mode and SMTP configuration do not require Gmail credentials', () => {
+  for (const key of ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN']) delete process.env[key];
+  process.env.NODE_ENV = 'test';
+  process.env.MAIL_MODE = 'file';
+  assert.equal(loadConfig().gmail, undefined);
+  process.env.MAIL_MODE = 'smtp';
+  Object.assign(process.env, { SMTP_HOST: 'smtp.campus.example', SMTP_PORT: '587', SMTP_USER: 'isolated-smtp-user', SMTP_PASSWORD: 'isolated-smtp-password' });
+  assert.equal(loadConfig().smtp.host, 'smtp.campus.example');
+  assert.equal(loadConfig().gmail, undefined);
 });
 
-test('Brevo startup check rejects disabled transactional delivery', async t => {
-  t.mock.method(globalThis, 'fetch', async () => response({ relay: { enabled: false } }));
-  await rejectsSafely(() => verifyBrevo(settings));
-});
-
-test('Brevo startup check sanitizes unauthorized provider responses', async t => {
-  const privateBody = `sensitive-provider-diagnostic-${fakeKey}`;
-  t.mock.method(globalThis, 'fetch', async () => response({ code: 'unauthorized', message: privateBody }, 401));
-  await rejectsSafely(() => verifyBrevo(settings), [privateBody]);
-});
-
-test('Brevo startup check rejects a malformed successful response', async t => {
-  t.mock.method(globalThis, 'fetch', async () => response({ account: 'not-a-relay-status' }));
-  await rejectsSafely(() => verifyBrevo(settings));
-});
-
-test('Brevo startup check aborts with a 15-second bound and hides network errors', async t => {
-  const privateReason = `timeout-with-private-key-${fakeKey}`;
-  t.mock.method(AbortSignal, 'timeout', milliseconds => {
+test('Gmail refreshes OAuth over HTTPS and sends correctly encoded UTF-8 MIME with 15-second bounds', async t => {
+  const text = 'Hello বাংলা — café\nOpen https://campus.example/verify-email?token=private-utf8-token';
+  const subject = 'Verify email — বাংলা';
+  const timeout = t.mock.method(AbortSignal, 'timeout', milliseconds => {
     assert.equal(milliseconds, 15_000);
-    return AbortSignal.abort(new DOMException(privateReason, 'TimeoutError'));
+    return new AbortController().signal;
   });
-  t.mock.method(globalThis, 'fetch', async (_url, options) => {
-    assert.equal(options.signal.aborted, true);
-    throw options.signal.reason;
+  const fetch = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    const headers = checkRequest(options);
+    if (String(url) === tokenEndpoint) {
+      assert.match(headers.get('content-type'), /^application\/x-www-form-urlencoded/i);
+      assert.equal(headers.get('authorization'), null);
+      const form = new URLSearchParams(options.body);
+      assert.equal(form.get('grant_type'), 'refresh_token');
+      assert.equal(form.get('client_id'), clientId);
+      assert.equal(form.get('client_secret'), clientSecret);
+      assert.equal(form.get('refresh_token'), refreshToken);
+      assert.equal(form.has('scope'), false);
+      return tokenResponse();
+    }
+    assert.equal(String(url), sendEndpoint);
+    assert.equal(headers.get('authorization'), `Bearer ${accessToken}`);
+    assert.match(headers.get('content-type'), /^application\/json/i);
+    const payload = JSON.parse(options.body);
+    assert.deepEqual(Object.keys(payload), ['raw']);
+    const decoded = decodeMessage(payload.raw);
+    assert.equal(decoded.headers.get('to'), recipient);
+    assert.equal(decoded.headers.get('from')?.match(/<([^<>]+)>$/)?.[1] ?? decoded.headers.get('from'), sender);
+    assert.equal(decoded.subject, subject);
+    assert.match(decoded.headers.get('content-type'), /^text\/plain;\s*charset="?utf-8"?/i);
+    assert.equal(decoded.text, text);
+    return response({ id: 'isolated-gmail-message-id' });
   });
-  await rejectsSafely(() => verifyBrevo(settings), [privateReason]);
+  await new GmailDelivery(settings).send({ email: recipient, subject, text });
+  assert.equal(fetch.mock.callCount(), 2);
+  assert.equal(timeout.mock.callCount(), 2);
 });
 
-test('Verification and password reset messages preserve their private link in the HTTPS payload', async t => {
-  for (const purpose of ['verify-email', 'reset-password']) {
-    await t.test(purpose, async context => {
-      const token = `${purpose}-private-one-time-token`;
-      const message = {
-        email: 'student@campus.example',
-        subject: purpose === 'verify-email' ? 'Verify your MyCampusToCareer email' : 'Reset your MyCampusToCareer password',
-        text: `Open https://campus.example/${purpose}?token=${token}\nThis link can be used once.`,
-      };
-      const fetch = context.mock.method(globalThis, 'fetch', async (url, options) => {
-        assert.equal(String(url), 'https://api.brevo.com/v3/smtp/email');
-        assert.equal(options.method, 'POST');
-        assert.equal(requestHeaders(options).get('content-type'), 'application/json');
-        const payload = JSON.parse(options.body);
-        assert.equal(payload.sender.email, sender);
-        assert.deepEqual(payload.to, [{ email: message.email }]);
-        assert.equal(payload.subject, message.subject);
-        assert.equal(payload.textContent, message.text);
-        assert.equal(payload.templateId, undefined);
-        return response({ messageId: '<isolated-test-message@brevo.example>' }, 201);
-      });
-      await sendBrevoEmail(settings, message);
-      assert.equal(fetch.mock.callCount(), 1, 'Delivery should not silently duplicate or retry a token email.');
+test('Gmail rejects address and subject header injection before requesting OAuth credentials', async t => {
+  const cases = [
+    { from: `${sender}\r\nBcc: ${recipient}` },
+    { from: `Campus <${sender}>` },
+    { email: `${recipient}\r\nBcc: private-bcc@campus.example` },
+    { email: 'not-an-email' },
+    { subject: 'Verify email\r\nBcc: private-bcc@campus.example' },
+    { subject: 'Verify email\u0000private-header-value' },
+  ];
+  for (const scenario of cases) {
+    await t.test(JSON.stringify(scenario), async context => {
+      const fetch = context.mock.method(globalThis, 'fetch', () => assert.fail('Unsafe MIME headers must be rejected before fetching.'));
+      await rejectsSafely(() => new GmailDelivery({ ...settings, ...(scenario.from ? { from: scenario.from } : {}) }).send({
+        email: scenario.email ?? recipient, subject: scenario.subject ?? 'Verify email', text: 'A private link.',
+      }), ['private-bcc@campus.example', 'private-header-value']);
+      assert.equal(fetch.mock.callCount(), 0);
     });
   }
 });
 
-test('Brevo send failures are sanitized and do not silently retry', async t => {
-  for (const status of [400, 401, 429, 500, 503]) {
+test('Gmail caches access tokens and refreshes at the 60-second safety margin', async t => {
+  let now = 1_800_000_000_000;
+  t.mock.method(Date, 'now', () => now);
+  let refreshes = 0;
+  let sends = 0;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (String(url) === tokenEndpoint) {
+      refreshes += 1;
+      return tokenResponse({ access_token: `${accessToken}-${refreshes}`, expires_in: 120 });
+    }
+    assert.equal(String(url), sendEndpoint);
+    assert.equal(new Headers(options.headers).get('authorization'), `Bearer ${accessToken}-${refreshes}`);
+    sends += 1;
+    return response({ id: `isolated-message-${sends}` });
+  });
+  const delivery = new GmailDelivery(settings);
+  const message = { email: recipient, subject: 'Verify email', text: 'Private test link.' };
+  await delivery.send(message);
+  now += 59_999;
+  await delivery.send(message);
+  assert.equal(refreshes, 1);
+  now += 1;
+  await delivery.send(message);
+  assert.equal(refreshes, 2);
+  assert.equal(sends, 3);
+});
+
+test('Concurrent Gmail sends share one in-flight token refresh', async t => {
+  let releaseToken;
+  let signalRefresh;
+  const tokenReady = new Promise(resolve => { releaseToken = resolve; });
+  const refreshStarted = new Promise(resolve => { signalRefresh = resolve; });
+  let refreshes = 0;
+  let sends = 0;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (String(url) === tokenEndpoint) {
+      refreshes += 1;
+      signalRefresh();
+      return tokenReady;
+    }
+    assert.equal(String(url), sendEndpoint);
+    sends += 1;
+    return response({ id: `isolated-concurrent-message-${sends}` });
+  });
+  const delivery = new GmailDelivery(settings);
+  const first = delivery.send({ email: recipient, subject: 'Verify email', text: 'First private link.' });
+  const second = delivery.send({ email: recipient, subject: 'Reset password', text: 'Second private link.' });
+  await refreshStarted;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(refreshes, 1);
+  releaseToken(tokenResponse());
+  await Promise.all([first, second]);
+  assert.equal(refreshes, 1);
+  assert.equal(sends, 2);
+});
+
+test('OAuth HTTP failures never send mail or expose private provider diagnostics', async t => {
+  for (const status of [400, 401, 403, 429, 500, 503]) {
     await t.test(`HTTP ${status}`, async context => {
-      const token = 'private-token-that-must-never-reach-the-error';
-      const text = `https://campus.example/reset-password?token=${token}`;
-      const privateBody = `provider-echo-of-${fakeKey}-${text}`;
-      const fetch = context.mock.method(globalThis, 'fetch', async () => response({ message: privateBody }, status));
-      await rejectsSafely(() => sendBrevoEmail(settings, { email: 'student@campus.example', subject: 'Reset password', text }), [token, text, privateBody]);
+      const privateUrl = 'https://campus.example/reset-password?token=private-refresh-failure-token';
+      const privateBody = `private-oauth-diagnostic ${clientSecret} ${refreshToken} ${recipient} ${privateUrl}`;
+      const fetch = context.mock.method(globalThis, 'fetch', async url => {
+        assert.equal(String(url), tokenEndpoint);
+        return response({ error: status === 400 ? 'invalid_grant' : 'private_provider_error', error_description: privateBody }, status);
+      });
+      await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Reset password', text: privateUrl }), [privateBody, privateUrl, 'private-refresh-failure-token']);
       assert.equal(fetch.mock.callCount(), 1);
     });
   }
 });
 
-test('Brevo sends reject missing message IDs and invalid JSON success bodies', async t => {
-  const message = { email: 'student@campus.example', subject: 'Verify email', text: 'A private verification link.' };
-  for (const body of [{}, { messageId: '' }, { messageId: 123 }]) {
+test('A failed token refresh does not poison the next explicit send attempt', async t => {
+  let refreshes = 0;
+  let sends = 0;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (String(url) === tokenEndpoint) {
+      refreshes += 1;
+      return refreshes === 1 ? response({ error: 'invalid_grant' }, 400) : tokenResponse();
+    }
+    assert.equal(String(url), sendEndpoint);
+    sends += 1;
+    return response({ id: 'isolated-recovered-message' });
+  });
+  const delivery = new GmailDelivery(settings);
+  const message = { email: recipient, subject: 'Verify email', text: 'Private recovery link.' };
+  await rejectsSafely(() => delivery.send(message));
+  await delivery.send(message);
+  assert.equal(refreshes, 2);
+  assert.equal(sends, 1);
+});
+
+test('Malformed successful OAuth responses cannot become bearer credentials', async t => {
+  const bodies = [
+    { access_token: undefined }, { access_token: '' }, { access_token: 123 }, { expires_in: undefined }, { expires_in: 0 },
+    { expires_in: '3600' }, { token_type: 'Basic' },
+  ];
+  for (const body of bodies) {
     await t.test(JSON.stringify(body), async context => {
-      context.mock.method(globalThis, 'fetch', async () => response(body, 201));
-      await rejectsSafely(() => sendBrevoEmail(settings, message));
+      const fetch = context.mock.method(globalThis, 'fetch', async url => {
+        assert.equal(String(url), tokenEndpoint);
+        return tokenResponse(body);
+      });
+      await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Verify email', text: 'Private link.' }));
+      assert.equal(fetch.mock.callCount(), 1);
     });
   }
   await t.test('non-JSON response', async context => {
-    context.mock.method(globalThis, 'fetch', async () => new Response('invalid-json-private-provider-body', { status: 201 }));
-    await rejectsSafely(() => sendBrevoEmail(settings, message), ['invalid-json-private-provider-body']);
+    context.mock.method(globalThis, 'fetch', async () => new Response(`private-invalid-json ${clientSecret}`, { status: 200 }));
+    await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Verify email', text: 'Private link.' }), ['private-invalid-json']);
   });
 });
 
-test('Brevo send network and abort failures do not expose the key or token', async t => {
-  const token = 'private-verification-token';
-  for (const name of ['TypeError', 'AbortError', 'TimeoutError']) {
-    await t.test(name, async context => {
-      context.mock.method(globalThis, 'fetch', async () => {
-        const error = new Error(`private-network-error-${fakeKey}-${token}`);
-        error.name = name;
-        throw error;
+test('Gmail send HTTP failures are sanitized and never silently resend a token email', async t => {
+  for (const status of [400, 401, 403, 429, 500, 503]) {
+    await t.test(`HTTP ${status}`, async context => {
+      const token = 'private-send-failure-token';
+      const privateUrl = `https://campus.example/reset-password?token=${token}`;
+      const privateBody = `private-send-diagnostic ${accessToken} ${recipient} ${privateUrl}`;
+      const fetch = context.mock.method(globalThis, 'fetch', async url => {
+        if (String(url) === tokenEndpoint) return tokenResponse();
+        assert.equal(String(url), sendEndpoint);
+        return response({ error: { code: status, message: privateBody } }, status);
       });
-      await rejectsSafely(() => sendBrevoEmail(settings, {
-        email: 'student@campus.example', subject: 'Verify email', text: `https://campus.example/verify-email?token=${token}`,
-      }), [token, 'private-network-error']);
+      await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Reset password', text: privateUrl }), [privateUrl, token, privateBody]);
+      assert.equal(fetch.mock.callCount(), 2, 'Only one refresh and one send attempt are permitted.');
     });
   }
 });
 
-test('MailService verifies Brevo at startup and delivers verification/reset links with the correct expiry', async t => {
-  t.mock.method(nodemailer, 'createTransport', () => {
-    assert.fail('Brevo mode must not create an SMTP transport.');
+test('Gmail sends reject missing message IDs and malformed success bodies', async t => {
+  for (const body of [{}, { id: '' }, { id: 123 }, { id: '   ' }, []]) {
+    await t.test(JSON.stringify(body), async context => {
+      context.mock.method(globalThis, 'fetch', async url => String(url) === tokenEndpoint ? tokenResponse() : response(body));
+      await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Verify email', text: 'Private link.' }));
+    });
+  }
+  await t.test('non-JSON response', async context => {
+    context.mock.method(globalThis, 'fetch', async url => String(url) === tokenEndpoint ? tokenResponse() : new Response(`private-invalid-send-json ${accessToken}`, { status: 200 }));
+    await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Verify email', text: 'Private link.' }), ['private-invalid-send-json']);
   });
-  const messages = [];
-  const fetch = t.mock.method(globalThis, 'fetch', async (url, options) => {
-    requestHeaders(options);
-    if (String(url) === 'https://api.brevo.com/v3/account') {
-      assert.equal(options.method, 'GET');
-      return response({ relay: { enabled: true } });
+});
+
+test('OAuth and Gmail network or abort failures expose no secrets and cause no send retries', async t => {
+  for (const phase of ['refresh', 'send']) {
+    for (const name of ['TypeError', 'AbortError', 'TimeoutError']) {
+      await t.test(`${phase} ${name}`, async context => {
+        const privateUrl = 'https://campus.example/verify-email?token=private-network-token';
+        const privateReason = `private-network-reason ${refreshToken} ${accessToken} ${privateUrl}`;
+        const fetch = context.mock.method(globalThis, 'fetch', async url => {
+          if (phase === 'send' && String(url) === tokenEndpoint) return tokenResponse();
+          const error = new Error(privateReason);
+          error.name = name;
+          throw error;
+        });
+        await rejectsSafely(() => new GmailDelivery(settings).send({ email: recipient, subject: 'Verify email', text: privateUrl }), [privateReason, privateUrl, 'private-network-token']);
+        assert.equal(fetch.mock.callCount(), phase === 'refresh' ? 1 : 2);
+      });
     }
-    assert.equal(String(url), 'https://api.brevo.com/v3/smtp/email');
-    assert.equal(options.method, 'POST');
-    messages.push(JSON.parse(options.body));
-    return response({ messageId: '<isolated-service-message@brevo.example>' }, 201);
+  }
+});
+
+test('Gmail MailService startup does not depend on external email and sends verification/reset links with the right expiry', async t => {
+  t.mock.method(nodemailer, 'createTransport', () => assert.fail('Gmail mode must not create an SMTP transport.'));
+  const messages = [];
+  let refreshes = 0;
+  const fetch = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (String(url) === tokenEndpoint) {
+      refreshes += 1;
+      return tokenResponse();
+    }
+    assert.equal(String(url), sendEndpoint);
+    messages.push(decodeMessage(JSON.parse(options.body).raw));
+    return response({ id: `isolated-service-message-${messages.length}` });
   });
   const service = new MailService();
   await service.onModuleInit();
-  assert.equal(fetch.mock.callCount(), 1, 'Startup must validate the email account before accepting requests.');
-  await service.sendLink('student@campus.example', 'verify', 'service-verification-one-time-token');
-  await service.sendLink('student@campus.example', 'reset', 'service-reset-one-time-token');
+  assert.equal(fetch.mock.callCount(), 0, 'Core API startup must not fetch Gmail or OAuth.');
+  await service.sendLink(recipient, 'verify', 'service-verification-one-time-token');
+  await service.sendLink(recipient, 'reset', 'service-reset-one-time-token');
   assert.equal(messages.length, 2);
-  assert.deepEqual(messages.map(message => message.to), [[{ email: 'student@campus.example' }], [{ email: 'student@campus.example' }]]);
   assert.equal(messages[0].subject, 'Verify your MyCampusToCareer email');
   assert.equal(messages[1].subject, 'Reset your MyCampusToCareer password');
-  assert.ok(messages[0].textContent.includes('https://campus.example/verify-email?token=service-verification-one-time-token'));
-  assert.ok(messages[0].textContent.includes('24 hours'));
-  assert.ok(messages[1].textContent.includes('https://campus.example/reset-password?token=service-reset-one-time-token'));
-  assert.ok(messages[1].textContent.includes('30 minutes'));
-  for (const message of messages) assert.ok(message.textContent.includes('can be used once'));
+  assert.ok(messages[0].text.includes('https://campus.example/verify-email?token=service-verification-one-time-token'));
+  assert.ok(messages[0].text.includes('24 hours'));
+  assert.ok(messages[1].text.includes('https://campus.example/reset-password?token=service-reset-one-time-token'));
+  assert.ok(messages[1].text.includes('30 minutes'));
+  for (const message of messages) {
+    assert.equal(message.headers.get('to'), recipient);
+    assert.equal(message.headers.get('from')?.match(/<([^<>]+)>$/)?.[1] ?? message.headers.get('from'), sender);
+    assert.ok(message.text.includes('can be used once'));
+  }
+  assert.equal(refreshes, 1);
   assert.equal(fetch.mock.callCount(), 3);
 });
 
-test('SMTP startup remains bounded and reports safe authentication/network hints', async t => {
+test('MailService logs only the safe OAuth diagnosis when Gmail rejects a refresh token', async t => {
+  const privateToken = 'private-service-logging-token';
+  const privateLink = `https://campus.example/reset-password?token=${privateToken}`;
+  const privateBody = `private-logging-diagnostic ${clientSecret} ${refreshToken} ${recipient} ${privateLink}`;
+  const logged = [];
+  t.mock.method(Logger.prototype, 'error', (...args) => { logged.push(args); });
+  const fetch = t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(String(url), tokenEndpoint);
+    return response({ error: 'invalid_grant', error_description: privateBody }, 400);
+  });
+  const service = new MailService();
+  const failure = await rejectsSafely(() => service.sendLink(recipient, 'reset', privateToken), [privateBody, privateLink, privateToken]);
+  assert.match(failure.message, /GMAIL_REFRESH_TOKEN_REJECTED/);
+  assert.deepEqual(logged, [[failure.message]], 'Only the safe diagnosis string may reach the logger.');
+  const details = errorStrings(logged);
+  for (const secret of [clientId, clientSecret, refreshToken, accessToken, sender, recipient, privateBody, privateLink, privateToken]) {
+    assert.ok(!details.includes(secret), 'Logged mail failures must not expose credentials, recipients, provider bodies, or token links.');
+  }
+  assert.equal(fetch.mock.callCount(), 1, 'A rejected refresh token must never trigger a mail send.');
+});
+
+test('MailService logs a fixed message for unexpected Gmail failures without echoing the error', async t => {
+  const privateToken = 'private-unexpected-service-token';
+  const privateLink = `https://campus.example/verify-email?token=${privateToken}`;
+  const privateError = new Error(`private-unexpected-diagnostic ${clientSecret} ${refreshToken} ${recipient} ${privateLink}`);
+  const logged = [];
+  t.mock.method(Logger.prototype, 'error', (...args) => { logged.push(args); });
+  t.mock.method(GmailDelivery.prototype, 'send', async () => { throw privateError; });
+  const fetch = t.mock.method(globalThis, 'fetch', () => assert.fail('The mocked delivery failure must not fetch.'));
+  const service = new MailService();
+  await assert.rejects(() => service.sendLink(recipient, 'verify', privateToken), error => error === privateError);
+  assert.deepEqual(logged, [['Gmail email delivery failed.']], 'Unexpected errors must use only the fixed safe log message.');
+  const details = errorStrings(logged);
+  for (const secret of [clientSecret, refreshToken, recipient, privateError.message, privateLink, privateToken]) {
+    assert.ok(!details.includes(secret));
+  }
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('Development file delivery still writes a local verification message', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'campus-mail-unit-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  preserveConfig(t, { production: false, emailMode: 'file', gmail: undefined, smtp: undefined, mailOutboxDir: directory });
+  const service = new MailService();
+  await service.onModuleInit();
+  await service.sendLink(recipient, 'verify', 'isolated-file-verification-token');
+  const files = await readdir(directory);
+  assert.equal(files.length, 1);
+  const message = await readFile(join(directory, files[0]), 'utf8');
+  assert.ok(message.includes(`To: ${recipient}`));
+  assert.ok(message.includes('Verify your MyCampusToCareer email'));
+  assert.ok(message.includes('https://campus.example/verify-email?token=isolated-file-verification-token'));
+});
+
+test('SMTP delivery remains available with bounded startup and safe authentication/network hints', async t => {
   for (const code of ['EAUTH', 'ETIMEDOUT']) {
     await t.test(code, async context => {
-      const previous = { smtp: config.smtp, brevo: config.brevo, emailMode: config.emailMode };
-      context.after(() => Object.assign(config, previous));
-      Object.assign(config, {
-        emailMode: 'smtp', brevo: undefined,
+      preserveConfig(context, {
+        emailMode: 'smtp', gmail: undefined,
         smtp: { host: 'smtp.campus.example', port: 587, secure: false, auth: { user: 'smtp-test-user', pass: 'smtp-test-private-password' }, from: sender },
       });
-      context.mock.method(globalThis, 'fetch', () => assert.fail('SMTP mode must not call the Brevo API.'));
       const transport = context.mock.method(nodemailer, 'createTransport', options => {
         assert.equal(options.connectionTimeout, 15_000);
         assert.equal(options.greetingTimeout, 10_000);
@@ -259,9 +488,30 @@ test('SMTP startup remains bounded and reports safe authentication/network hints
           throw error;
         } };
       });
-      const service = new MailService();
-      await rejectsSafely(() => service.onModuleInit(), ['smtp-test-private-password']);
+      const error = await rejectsSafely(() => new MailService().onModuleInit(), ['smtp-test-private-password']);
+      assert.match(error.message, code === 'EAUTH' ? /SMTP_USER.*SMTP_PASSWORD/ : /SMTP.*network|network.*SMTP/i);
       assert.equal(transport.mock.callCount(), 1);
     });
   }
+  await t.test('successful SMTP delivery', async context => {
+    preserveConfig(context, {
+      emailMode: 'smtp', gmail: undefined,
+      smtp: { host: 'smtp.campus.example', port: 587, secure: false, auth: { user: 'smtp-test-user', pass: 'smtp-test-private-password' }, from: sender },
+    });
+    let checks = 0;
+    const sent = [];
+    context.mock.method(nodemailer, 'createTransport', () => ({
+      verify: async () => { checks += 1; },
+      sendMail: async message => { sent.push(message); return {}; },
+    }));
+    const service = new MailService();
+    await service.onModuleInit();
+    await service.sendLink(recipient, 'reset', 'isolated-smtp-reset-token');
+    assert.equal(checks, 1);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].from, sender);
+    assert.equal(sent[0].to, recipient);
+    assert.equal(sent[0].subject, 'Reset your MyCampusToCareer password');
+    assert.ok(sent[0].text.includes('https://campus.example/reset-password?token=isolated-smtp-reset-token'));
+  });
 });
