@@ -35,9 +35,20 @@ export function loadConfig() {
   if (gmail && !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(gmail.from)) {
     throw new Error('Gmail MAIL_FROM must be a plain email address for the authorized account, without a display name.');
   }
+  const hasDocumentStorage = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+    .some(name => !!process.env[name]?.trim());
+  const documents = hasDocumentStorage ? {
+    cloudName: required('CLOUDINARY_CLOUD_NAME'), apiKey: required('CLOUDINARY_API_KEY'),
+    apiSecret: required('CLOUDINARY_API_SECRET'),
+  } : undefined;
+  if (documents && (!/^[a-z0-9_-]{1,64}$/.test(documents.cloudName)
+    || !/^\d{5,30}$/.test(documents.apiKey) || documents.apiSecret.length < 10
+    || documents.apiSecret.length > 200 || /[\x00-\x20\x7f]/.test(documents.apiSecret))) {
+    throw new Error('Invalid Cloudinary document storage configuration.');
+  }
   const port = Number(process.env.API_PORT || process.env.PORT || 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid API_PORT.');
-  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, gmail, port,
+  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, gmail, documents, port,
     host: process.env.API_HOST || process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1'), mailOutboxDir: resolve(process.env.MAIL_OUTBOX_DIR || '../../.local/mail'),
     sessionMaxAge: 1000 * 60 * 60 * 24 * 7 };
 }

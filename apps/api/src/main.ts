@@ -21,7 +21,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().disable('x-powered-by');
   if (config.production) app.set('trust proxy', 1);
   app.use(helmet());
-  app.enableCors({ origin: config.appOrigin, credentials: true, methods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowedHeaders: ['Content-Type', 'X-CSRF-Token'] });
+  app.enableCors({ origin: config.appOrigin, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'X-CSRF-Token'] });
   let store: session.Store;
   if (config.sessionDriver === 'redis') {
     const client = createClient({ url: config.redisUrl });

@@ -15,6 +15,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "node --test tests/integration.test.mjs",
     "test:mail": "npm run build && node --test tests/mail.test.mjs",
+    "test:documents": "npm run build && node --test tests/document-storage.test.mjs tests/documents.test.mjs",
     "test:integration": "node --test tests/integration.test.mjs"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "nodemailer": "10.1.0",
+    "pdf-lib": "1.17.1",
     "pg": "^8.16.3",
     "redis": "^5.9.0",
     "reflect-metadata": "^0.2.2",
@@ -42,6 +44,7 @@
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.5",
     "@types/express-session": "^1.18.2",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.10.0",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.15.6",

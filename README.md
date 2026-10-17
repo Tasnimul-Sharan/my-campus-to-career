@@ -1,6 +1,6 @@
 # MyCampusToCareer
 
-A campus-to-career platform for university students. The first phase includes student registration, sign-in, profiles and a basic admin dashboard. All product pages, messages and emails use English.
+A campus-to-career platform for university students. The application includes student registration, sign-in, profiles, private PDF documents and an admin dashboard. All product pages, messages and emails use English.
 
 **Stack:** Next.js + Tailwind CSS + NestJS + TypeScript + PostgreSQL + Prisma. Local sessions use PostgreSQL; Redis is optional.
 
@@ -77,11 +77,11 @@ docs/        Architecture and acceptance checks
 | Course catalogue and enrollment | Planned for the next development phase |
 | Physical workshop registration | Planned |
 | Payment and confirmation | Planned; no live payments |
-| Project/certificate upload | Planned |
+| Project/certificate upload | Private PDF upload, download and deletion; configure Cloudinary |
 | Job listing and application | Planned |
-| Admin dashboard | Basic overview and student management |
+| Admin dashboard | Basic overview, student management and document directory |
 
-Do not treat the planned modules as completed features. Their payment, seat-capacity, upload and application rules will be implemented and tested in their respective phases.
+Do not treat the planned modules as completed features. Their payment, seat-capacity and application rules will be implemented and tested in their respective phases. Follow the [Cloudinary document guide](docs/cloudinary-documents.md) before enabling PDF uploads in a deployment.
 
 ## Verify changes
 
@@ -92,10 +92,13 @@ npm run typecheck
 npm run build
 npm run test:mail
 npm run test:gmail-auth
+npm run test:documents
 npm run test:integration
 ```
 
 `npm run test:mail` runs focused email transport/configuration tests with mocked provider requests. `npm run test:gmail-auth` tests the local OAuth helper with mocked exchanges and local callbacks. Neither command sends email or requires live Google credentials or consent.
+
+`npm run test:documents` checks private PDF validation, storage and document access rules with mocked operations. It does not upload to a real Cloudinary account or read private credentials.
 
 Run integration tests in a second terminal while the database and API are running. They require the API's generated `.env`, `MAIL_MODE=file`, and a seeded admin whose `ADMIN_EMAIL`/`ADMIN_PASSWORD` match those settings. `npm run test:integration` verifies the local API health and rejects nonlocal targets. To change the local API target, set `TEST_API_ORIGIN` to its origin without `/api/v1`.
 

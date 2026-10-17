@@ -94,8 +94,8 @@ const roadmapItems = [
   {
     icon: Layers3,
     title: 'Projects & certificates',
-    description: 'Upload your projects and certificates to keep a record of the work you have done and the skills you have earned.',
-    available: false,
+    description: 'Keep your CV, project reports and certificates together as private PDF documents, ready for your next opportunity.',
+    available: true,
   },
   {
     icon: BriefcaseBusiness,
@@ -258,7 +258,7 @@ export default function Home() {
           <div className="roadmap-heading">
             <span className="eyebrow">WHAT WE ARE BUILDING</span>
             <h2 id="roadmap-title">Your journey,<br />all together.</h2>
-            <p>Your student profile is ready to start today. We&apos;re building the next steps in learning and career opportunities, one phase at a time.</p>
+            <p>Build your student profile and keep your CV, projects and certificates together. Courses, workshops and career opportunities are coming in the next phases.</p>
           </div>
           <div className="roadmap-grid">
             {roadmapItems.map(({ icon: Icon, title, description, available }) => (

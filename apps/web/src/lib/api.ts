@@ -25,7 +25,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     if (!csrfResponse.ok) throw new ApiError(csrfResponse.status, 'Unable to complete the security check. Please try again.');
     const csrf = await csrfResponse.json() as { csrfToken: string };
     headers.set('X-CSRF-Token', csrf.csrfToken);
-    headers.set('Content-Type', 'application/json');
+    if (!(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   }
   let response: Response;
   try { response = await fetch(`/api/v1${path}`, { ...options, method, headers, credentials: 'include', cache: 'no-store' }); }

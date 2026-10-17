@@ -21,6 +21,18 @@ enum AuthTokenType {
   PASSWORD_RESET
 }
 
+enum DocumentCategory {
+  CV
+  CERTIFICATE
+  PROJECT
+}
+
+enum DocumentStatus {
+  UPLOADING
+  READY
+  DELETING
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(100)
@@ -35,8 +47,26 @@ model User {
   profile         StudentProfile?
   tokens          AuthToken[]
   auditLogs       AuditLog[] @relation("AuditActor")
+  documents       StudentDocument[]
 
   @@index([role, createdAt])
+}
+
+model StudentDocument {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @db.Uuid
+  user               User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  title              String           @db.VarChar(150)
+  category           DocumentCategory
+  originalFilename   String           @db.VarChar(255)
+  cloudinaryPublicId String           @unique @db.VarChar(255)
+  sizeBytes          Int
+  status             DocumentStatus   @default(UPLOADING)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model StudentProfile {

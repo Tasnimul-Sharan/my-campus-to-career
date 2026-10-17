@@ -49,4 +49,4 @@
 
 ## Scope check
 
-Phase one delivers account/profile and basic administration. Course catalogue/enrollment, physical workshop registration, payments, uploads and job applications are planned modules. Any navigation to these modules must clearly identify their availability. No live payment or email integration should be represented as working until configured and verified.
+The account/profile foundation and basic administration are extended by the private PDF document module. Follow the Cloudinary document guide for its migration, storage configuration and acceptance checks. Course catalogue/enrollment, physical workshop registration, payments and job applications remain planned modules. Any navigation to these modules must clearly identify their availability. No external integration should be represented as working until configured and verified.

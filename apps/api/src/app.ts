@@ -7,6 +7,7 @@ import { Database } from './database';
 import { MailService } from './mail';
 import { DashboardController, ProfileController, ProfileService } from './profile';
 import { AdminGuard, SessionGuard, StudentGuard } from './security';
+import { AdminDocumentsController, DocumentsController, DocumentsService, DocumentUploadGuard } from './documents';
 
 @Controller('health')
 class HealthController {
@@ -15,7 +16,7 @@ class HealthController {
 }
 @Module({
   imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 120 }])],
-  controllers: [AuthController, ProfileController, DashboardController, AdminController, HealthController],
-  providers: [Database, AuthService, MailService, ProfileService, SessionGuard, AdminGuard, StudentGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [AuthController, ProfileController, DashboardController, AdminController, HealthController, DocumentsController, AdminDocumentsController],
+  providers: [Database, AuthService, MailService, ProfileService, SessionGuard, AdminGuard, StudentGuard, DocumentsService, DocumentUploadGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
