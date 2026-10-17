@@ -4,21 +4,27 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from 'lucide-react';
 import { api, errorMessage, type User } from '@/lib/api';
+import { registrationDelivery, rememberVerificationDelivery, type VerificationDelivery } from '@/lib/verification-delivery';
 import { AuthFrame, Field, Notice, PasswordInput, SubmitButton } from './ui';
 
 export function RegisterForm() {
   const router = useRouter(); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [registered, setRegistered] = useState(false);
+  const [delivery, setDelivery] = useState<VerificationDelivery>('unknown');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const values = new FormData(event.currentTarget); setError('');
     if (values.get('password') !== values.get('confirmPassword')) { setError('Passwords must match.'); return; }
     setBusy(true);
     try {
-      await api('/auth/register', { method: 'POST', body: JSON.stringify({ name: String(values.get('name')).trim(), email: String(values.get('email')).trim().toLowerCase(), password: values.get('password') }) });
+      const response = await api<{ user: User; message?: string }>('/auth/register', { method: 'POST', body: JSON.stringify({ name: String(values.get('name')).trim(), email: String(values.get('email')).trim().toLowerCase(), password: values.get('password') }) });
+      const status = registrationDelivery(response.message);
+      setDelivery(status);
+      const remembered = rememberVerificationDelivery(response.user.id, status);
+      if (status === 'failed' && !remembered) { setRegistered(true); return; }
       try { await api('/auth/me'); router.replace('/dashboard'); } catch { setRegistered(true); }
     } catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
   }
   return <AuthFrame eyebrow="YOUR FIRST STEP" title="Start your journey" description="Create an account to bring your education, skills, and experience together.">
-    {registered ? <div className="auth-success"><CheckCircle2 size={42} /><h2>Your account is ready</h2><p>Verify your account using the link in your email, then sign in.</p><Link className="button button-primary" href="/login">Sign in <ArrowRight size={18} /></Link></div> : <form onSubmit={submit} className="auth-form">
+    {registered ? <div className="auth-success"><CheckCircle2 size={42} /><h2>Your account has been created</h2>{delivery === 'failed' ? <Notice>We could not send your verification email. Sign in and use Resend link on your dashboard to try again.</Notice> : <p>{delivery === 'sent' ? 'A verification email was sent. Check your inbox and spam folder, or sign in to request a new link.' : 'Sign in to your dashboard to request a verification email.'}</p>}<Link className="button button-primary" href="/login">Sign in <ArrowRight size={18} /></Link></div> : <form onSubmit={submit} className="auth-form">
       {error && <Notice>{error}</Notice>}
       <Field id="name" label="Full name"><input id="name" name="name" autoComplete="name" placeholder="Your full name" required minLength={2} maxLength={100} /></Field>
       <Field id="email" label="Email address"><input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></Field>
