@@ -131,6 +131,18 @@ test('verified upload reserves an owner-only UUID key and returns no storage ide
   assert.ok(!key.includes('report'));
 });
 
+test('CV uploads are rejected before storage or reservation while certificate and project uploads remain accepted', async () => {
+  const rejected = setup();
+  await assert.rejects(rejected.service.upload(owner, { ...dto, category: 'CV' }, uploadFile()),
+    error => error.getStatus() === 400);
+  assert.equal(rejected.db.calls.length, 0);
+  assert.equal(rejected.storageCalls.length, 0);
+  for (const category of ['CERTIFICATE', 'PROJECT']) {
+    const { service } = setup();
+    assert.equal((await service.upload(owner, { ...dto, category }, uploadFile())).document.category, category);
+  }
+});
+
 test('unverified, inactive and non-student accounts are rejected before storage or a reservation', async () => {
   for (const change of [{ emailVerifiedAt: null }, { status: 'SUSPENDED' }, { role: 'ADMIN' }]) {
     const { service, db, storageCalls } = setup();
@@ -306,6 +318,12 @@ test('upload DTO rejects unknown ownership and invalid category fields', async (
   const invalid = plainToInstance(UploadDocumentDto, { title: ' ', category: 'OTHER', userId: another.id });
   const errors = await validate(invalid, { whitelist: true, forbidNonWhitelisted: true });
   assert.deepEqual(errors.map(error => error.property).sort(), ['category', 'title', 'userId']);
+  for (const category of ['CV', 'CERTIFICATE', 'PROJECT']) {
+    const candidate = plainToInstance(UploadDocumentDto, { ...dto, category });
+    const categoryErrors = await validate(candidate);
+    assert.equal(categoryErrors.length, category === 'CV' ? 1 : 0);
+    if (category === 'CV') assert.equal(categoryErrors[0].property, 'category');
+  }
 });
 
 function guardRequest(user = owner) {
@@ -364,8 +382,8 @@ test('multipart controller accepts the three expected parts and rejects surplus 
   await app.listen(0, '127.0.0.1');
   t.after(() => app.close());
   const address = app.getHttpServer().address();
-  function form(extra = false, bytes = validPdf) {
-    const body = new FormData(); body.set('title', dto.title); body.set('category', dto.category);
+  function form(extra = false, bytes = validPdf, category = dto.category) {
+    const body = new FormData(); body.set('title', dto.title); body.set('category', category);
     body.set('file', new Blob([bytes], { type: 'application/pdf' }), 'Project report.pdf');
     if (extra) body.set('userId', another.id);
     return body;
@@ -376,5 +394,8 @@ test('multipart controller accepts the three expected parts and rejects surplus 
   assert.equal(requests[0].user.id, owner.id); assert.equal(requests[0].file.buffer.length, validPdf.length);
   assert.equal((await loopbackFetch(url, { method: 'POST', body: form(true) })).status, 400);
   assert.equal((await loopbackFetch(url, { method: 'POST', body: form(false, Buffer.alloc(DOCUMENT_LIMITS.maxBytes + 1)) })).status, 413);
+  assert.equal((await loopbackFetch(url, { method: 'POST', body: form(false, validPdf, 'CV') })).status, 400);
   assert.equal(requests.length, 1);
+  assert.equal((await loopbackFetch(url, { method: 'POST', body: form(false, validPdf, 'CERTIFICATE') })).status, 201);
+  assert.equal(requests.length, 2);
 });

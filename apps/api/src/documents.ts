@@ -7,7 +7,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { DocumentCategory, Prisma, StudentDocument, User } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
 import { randomUUID } from 'node:crypto';
 import { config } from './config';
 import { Database } from './database';
@@ -17,6 +17,7 @@ import { AdminGuard, SessionGuard, StudentGuard } from './security';
 import { AuthenticatedRequest } from './session-types';
 
 export const DOCUMENT_LIMITS = Object.freeze({ maxBytes: MAX_PDF_BYTES, maxDocuments: 10 });
+const UPLOAD_DOCUMENT_CATEGORIES: readonly DocumentCategory[] = [DocumentCategory.CERTIFICATE, DocumentCategory.PROJECT];
 const UPLOAD_DELETE_DELAY_MS = 2 * 60_000;
 const DOWNLOAD_LIFETIME_MS = 5 * 60_000;
 
@@ -44,7 +45,7 @@ export class DocumentUploadGuard implements CanActivate {
 export class UploadDocumentDto {
   @Transform(({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value)
   @IsString() @MinLength(1) @MaxLength(150) title!: string;
-  @IsEnum(DocumentCategory) category!: DocumentCategory;
+  @IsIn(UPLOAD_DOCUMENT_CATEGORIES) category!: DocumentCategory;
 }
 
 export interface DocumentUpload {
@@ -108,6 +109,7 @@ export class DocumentsService {
 
   async upload(user: User, dto: UploadDocumentDto, file?: DocumentUpload) {
     this.verifiedStudent(user);
+    if (!UPLOAD_DOCUMENT_CATEGORIES.includes(dto.category)) throw new BadRequestException('Only certificates and project PDFs can be uploaded.');
     const storage = this.configuredStorage();
     if (!file || !Buffer.isBuffer(file.buffer) || !file.buffer.length) throw new BadRequestException('Choose a PDF file to upload.');
     if (file.size !== file.buffer.length || file.buffer.length > MAX_PDF_BYTES) throw new BadRequestException('Each PDF must be no larger than 4 MB.');

@@ -75,7 +75,7 @@ export function StudentDocuments() {
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<DocumentCategory>('CV');
+  const [category, setCategory] = useState<DocumentCategory>('CERTIFICATE');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -141,7 +141,7 @@ export function StudentDocuments() {
   }
   if (!session.user) return <SessionState {...session} />;
   return <AppShell user={session.user}>
-    <div className="page-heading"><div><span className="eyebrow">YOUR WORK. YOUR PROGRESS.</span><h1>My documents</h1><p>Keep your CV, certificates and project reports together.</p></div><span className="admin-role-badge"><LockKeyhole size={16} /> Private documents</span></div>
+    <div className="page-heading"><div><span className="eyebrow">YOUR WORK. YOUR PROGRESS.</span><h1>My documents</h1><p>Keep your certificates and project reports together.</p></div><span className="admin-role-badge"><LockKeyhole size={16} /> Private documents</span></div>
     {success && <Notice success>{success}</Notice>}
     {loadError && <Notice>{loadError}</Notice>}
     {data && !data.available && <StorageUnavailable />}
@@ -152,7 +152,7 @@ export function StudentDocuments() {
         {!session.user.emailVerified && <div className={styles.verificationNote}><p>Verify your email using the banner above to upload documents.</p><button type="button" className="text-link" onClick={session.retry}>I have verified my email <RefreshCw size={13} /></button></div>}
         {limitReached && <p className={styles.verificationNote}>You have reached your {maxDocuments.toLocaleString('en-GB')}-document limit. Delete a document to make room for another.</p>}
         <form className={styles.form} onSubmit={submit}>
-          <Field id="document-title" label="Document title"><input id="document-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={150} placeholder="e.g. My latest CV" required disabled={uploadDisabled} /></Field>
+          <Field id="document-title" label="Document title"><input id="document-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={150} placeholder="e.g. Web development certificate" required disabled={uploadDisabled} /></Field>
           <Field id="document-category" label="Category"><select id="document-category" className={styles.select} value={category} onChange={(event) => setCategory(event.target.value as DocumentCategory)} disabled={uploadDisabled}>{documentCategories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>
           <div><label className={styles.fileLabel} htmlFor="document-file"><UploadCloud size={28} /><strong>{file ? 'Choose a different PDF' : 'Choose your PDF'}</strong><span>PDF only · Up to {fileSize(maxBytes)}</span><input ref={fileInput} id="document-file" className="sr-only" type="file" accept=".pdf,application/pdf" onChange={selectFile} disabled={uploadDisabled} /></label>{file && <div className={styles.chosen}><FileText size={20} /><div><strong>{file.name}</strong><span>{fileSize(file.size)}</span></div><button type="button" className="icon-button" onClick={clearFile} disabled={uploading} aria-label="Remove selected file"><X size={15} /></button></div>}</div>
           {uploadError && <Notice>{uploadError}</Notice>}
@@ -163,7 +163,7 @@ export function StudentDocuments() {
       </section>
       <section className={`panel ${styles.library}`} aria-labelledby="document-library-title" aria-busy={loading}>
         <div className={styles.libraryHeader}><div><span className="eyebrow">YOUR DOCUMENT LIBRARY</span><h2 id="document-library-title">Saved documents</h2></div><button type="button" className="icon-button" disabled={loading || uploading} onClick={() => setReload((value) => value + 1)} aria-label="Refresh documents"><RefreshCw size={17} className={loading ? 'spin' : ''} /></button></div>
-        {loading ? <Loading text="Loading your documents…" /> : !data || loadError ? <div className={styles.empty}><FolderOpen size={35} /><h3>Unable to load documents</h3><p>Please check your connection and try again.</p><button className="button button-outline button-small" type="button" onClick={() => setReload((value) => value + 1)}>Try again</button></div> : data.documents.length === 0 ? <div className={styles.empty}><FileCheck2 size={39} /><h3>Your next chapter starts here</h3><p>Upload your first CV, certificate or project report. Your saved PDFs will appear here.</p></div> : <ul className={styles.cards}>{data.documents.map((document) => <li key={document.id} className={styles.card}><div className={styles.cardTop}><span className={styles.pdfIcon}><FileText size={24} /></span><div className={styles.cardBody}><h3>{document.title}</h3><p className={styles.filename}>{document.originalFilename}</p><div className={styles.metadata}><span className="badge badge-soft">{categoryLabel(document.category)}</span><span>{fileSize(document.sizeBytes)}</span><span>{documentDate(document.createdAt)}</span></div></div></div><DocumentStatus document={document} /><div className={styles.actions}>{isDocumentReady(document) && data.available && <DownloadButton document={document} />}<button type="button" className={styles.deleteButton} disabled={uploading || !data.available} aria-label={`Delete ${document.title}`} onClick={() => { setDeleting(document); setDeleteError(''); }}><Trash2 size={14} />Delete</button></div></li>)}</ul>}
+        {loading ? <Loading text="Loading your documents…" /> : !data || loadError ? <div className={styles.empty}><FolderOpen size={35} /><h3>Unable to load documents</h3><p>Please check your connection and try again.</p><button className="button button-outline button-small" type="button" onClick={() => setReload((value) => value + 1)}>Try again</button></div> : data.documents.length === 0 ? <div className={styles.empty}><FileCheck2 size={39} /><h3>Your next chapter starts here</h3><p>Upload your first certificate or project report. Your saved PDFs will appear here.</p></div> : <ul className={styles.cards}>{data.documents.map((document) => <li key={document.id} className={styles.card}><div className={styles.cardTop}><span className={styles.pdfIcon}><FileText size={24} /></span><div className={styles.cardBody}><h3>{document.title}</h3><p className={styles.filename}>{document.originalFilename}</p><div className={styles.metadata}><span className="badge badge-soft">{categoryLabel(document.category)}</span><span>{fileSize(document.sizeBytes)}</span><span>{documentDate(document.createdAt)}</span></div></div></div><DocumentStatus document={document} /><div className={styles.actions}>{isDocumentReady(document) && data.available && <DownloadButton document={document} />}<button type="button" className={styles.deleteButton} disabled={uploading || !data.available} aria-label={`Delete ${document.title}`} onClick={() => { setDeleting(document); setDeleteError(''); }}><Trash2 size={14} />Delete</button></div></li>)}</ul>}
       </section>
     </div>
     <p className={styles.footerNote}><LockKeyhole size={15} />Downloads use a temporary link. Upload only documents that belong to you.</p>
@@ -193,7 +193,7 @@ export function AdminDocuments() {
   if (!session.user || session.user.role !== 'ADMIN') return <SessionState {...session} />;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return <AppShell user={session.user} admin>
-    <div className="page-heading"><div><span className="eyebrow">STUDENT ACHIEVEMENTS</span><h1>Student documents</h1><p>Review the CVs, certificates and project reports students have shared.</p></div><span className="admin-role-badge"><ShieldCheck size={17} /> Administrator</span></div>
+    <div className="page-heading"><div><span className="eyebrow">STUDENT ACHIEVEMENTS</span><h1>Student documents</h1><p>Review the certificates and project reports students have shared.</p></div><span className="admin-role-badge"><ShieldCheck size={17} /> Administrator</span></div>
     {error && <Notice>{error}</Notice>}{data && !data.available && <StorageUnavailable />}
     <section className="panel students-panel" aria-busy={loading}>
       <div className="students-header"><div><span className="eyebrow">DOCUMENT DIRECTORY</span><h2>Student documents</h2></div><form className="search-form" onSubmit={submit}><label className="sr-only" htmlFor="document-search">Search by student name, email or document title</label><div className="search-input"><Search size={18} /><input id="document-search" maxLength={100} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Search student or document" /></div><button className="button button-outline button-small" type="submit">Search</button></form></div>

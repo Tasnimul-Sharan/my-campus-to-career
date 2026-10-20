@@ -1,10 +1,10 @@
 import { api, ApiError } from './api';
 
-export type DocumentCategory = 'CV' | 'CERTIFICATE' | 'PROJECT';
+export type DocumentCategory = 'CERTIFICATE' | 'PROJECT';
 export type StudentDocument = {
   id: string;
   title: string;
-  category: DocumentCategory;
+  category: DocumentCategory | 'CV';
   originalFilename: string;
   sizeBytes: number;
   createdAt: string;
@@ -18,11 +18,10 @@ export type DocumentList = {
 };
 export type AdminDocumentList = { documents: StudentDocument[]; page: number; pageSize: number; total: number; available: boolean };
 export const documentCategories: { value: DocumentCategory; label: string }[] = [
-  { value: 'CV', label: 'CV / Resume' },
   { value: 'CERTIFICATE', label: 'Certificate' },
   { value: 'PROJECT', label: 'Project report' },
 ];
-export const categoryLabel = (category: DocumentCategory) => documentCategories.find((item) => item.value === category)?.label || 'Document';
+export const categoryLabel = (category: StudentDocument['category']) => documentCategories.find((item) => item.value === category)?.label || 'Document';
 export const documentDate = (date: string) => new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dhaka' });
 export const fileSize = (bytes: number) => bytes < 1024 * 1024
   ? `${Math.max(1, Math.ceil(bytes / 1024)).toLocaleString('en-GB')} KB`

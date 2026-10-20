@@ -1,6 +1,6 @@
 # Private student PDFs with Cloudinary
 
-The document module adds student `/documents` and administrator `/admin/documents` pages. The existing NestJS session and PostgreSQL user accounts remain the authority for access. Students upload CVs, certificates and project reports; administrators can search and download student documents.
+The document module adds student `/documents` and administrator `/admin/documents` pages. The existing NestJS session and PostgreSQL user accounts remain the authority for access. Students upload certificates and project reports; administrators can search and download student documents. New uploads accept only `CERTIFICATE` and `PROJECT`. Existing documents retain their original metadata and access rules; historical categories stay in the database for compatibility.
 
 ## Limits and access
 
