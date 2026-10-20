@@ -16,6 +16,7 @@
     "test": "node --test tests/integration.test.mjs",
     "test:mail": "npm run build && node --test tests/mail.test.mjs",
     "test:documents": "npm run build && node --test tests/document-storage.test.mjs tests/documents.test.mjs",
+    "test:profile-pictures": "npm run build && node --test tests/profile-picture-storage.test.mjs tests/profile-pictures.test.mjs",
     "test:integration": "node --test tests/integration.test.mjs"
   },
   "dependencies": {
@@ -38,7 +39,8 @@
     "pg": "^8.16.3",
     "redis": "^5.9.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",

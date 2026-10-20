@@ -39,7 +39,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 export const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-export type User = { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN'; emailVerified: boolean; status: 'ACTIVE' | 'SUSPENDED'; createdAt?: string };
+export type User = { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN'; emailVerified: boolean; status: 'ACTIVE' | 'SUSPENDED'; createdAt?: string; profilePictureUrl?: string | null };
 export type Education = { institution: string; degree: string; field: string; startYear?: number; endYear?: number };
 export type Profile = {
   phone: string; city: string; objective: string; university: string; department: string; semester: string; degree: string; passingYear: number | null;

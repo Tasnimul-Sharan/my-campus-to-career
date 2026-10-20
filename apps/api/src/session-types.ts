@@ -7,5 +7,7 @@ declare module 'express-session' {
 export type AuthenticatedRequest = Request & { currentUser: User };
 export function publicUser(user: User) {
   return { id: user.id, name: user.name, email: user.email, role: user.role,
-    emailVerified: !!user.emailVerifiedAt, status: user.status };
+    emailVerified: !!user.emailVerifiedAt, status: user.status,
+    profilePictureUrl: user.profilePictureId
+      ? `/api/v1/profile/picture/${encodeURIComponent(user.id)}?v=${encodeURIComponent(user.profilePictureId)}` : null };
 }

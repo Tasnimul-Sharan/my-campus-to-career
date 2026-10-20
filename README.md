@@ -73,7 +73,7 @@ docs/        Architecture and acceptance checks
 
 | Agreed feature | Phase-one scope |
 | --- | --- |
-| Student registration and profile | Registration, verification, login, reset password and profile editing |
+| Student registration and profile | Registration, verification, login, reset password, profile editing and a private profile picture |
 | Course catalogue and enrollment | Planned for the next development phase |
 | Physical workshop registration | Planned |
 | Payment and confirmation | Planned; no live payments |
@@ -93,12 +93,15 @@ npm run build
 npm run test:mail
 npm run test:gmail-auth
 npm run test:documents
+npm run test:profile-pictures
 npm run test:integration
 ```
 
 `npm run test:mail` runs focused email transport/configuration tests with mocked provider requests. `npm run test:gmail-auth` tests the local OAuth helper with mocked exchanges and local callbacks. Neither command sends email or requires live Google credentials or consent.
 
 `npm run test:documents` checks private PDF validation, storage and document access rules with mocked operations. It does not upload to a real Cloudinary account or read private credentials.
+
+`npm run test:profile-pictures` checks image validation, private picture access, replacement and cleanup with synthetic images and mocked operations. See the [profile picture guide](docs/profile-pictures.md) for its additive migration and rollout checks.
 
 Run integration tests in a second terminal while the database and API are running. They require the API's generated `.env`, `MAIL_MODE=file`, and a seeded admin whose `ADMIN_EMAIL`/`ADMIN_PASSWORD` match those settings. `npm run test:integration` verifies the local API health and rejects nonlocal targets. To change the local API target, set `TEST_API_ORIGIN` to its origin without `/api/v1`.
 

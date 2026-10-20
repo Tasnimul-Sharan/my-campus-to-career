@@ -21,6 +21,7 @@
     "test": "npm run test --workspace=@campus/api",
     "test:mail": "npm run test:mail --workspace=@campus/api",
     "test:documents": "npm run test:documents --workspace=@campus/api",
+    "test:profile-pictures": "npm run test:profile-pictures --workspace=@campus/api",
     "test:gmail-auth": "node --test scripts/tests/gmail-oauth.test.mjs",
     "gmail:authorize": "node scripts/gmail-authorize.mjs",
     "test:integration": "node scripts/test-integration.mjs",

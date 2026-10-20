@@ -33,6 +33,12 @@ enum DocumentStatus {
   DELETING
 }
 
+enum ProfilePictureStatus {
+  UPLOADING
+  READY
+  DELETING
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(100)
@@ -48,8 +54,25 @@ model User {
   tokens          AuthToken[]
   auditLogs       AuditLog[] @relation("AuditActor")
   documents       StudentDocument[]
+  profilePictureId String? @unique @db.Uuid
+  profilePicture ProfilePictureAsset? @relation("CurrentProfilePicture", fields: [profilePictureId], references: [id], onDelete: SetNull)
+  profilePictureAssets ProfilePictureAsset[] @relation("ProfilePictureOwner")
 
   @@index([role, createdAt])
+}
+
+model ProfilePictureAsset {
+  id                 String               @id @default(uuid()) @db.Uuid
+  userId             String               @db.Uuid
+  user               User                 @relation("ProfilePictureOwner", fields: [userId], references: [id], onDelete: Restrict)
+  currentFor         User?                @relation("CurrentProfilePicture")
+  cloudinaryPublicId String               @unique @db.VarChar(255)
+  status             ProfilePictureStatus @default(UPLOADING)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
 }
 
 model StudentDocument {

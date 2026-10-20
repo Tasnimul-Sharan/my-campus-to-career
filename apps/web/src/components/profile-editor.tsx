@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api, emptyProfile, errorMessage, type Education, type Profile } from '@/lib/api';
 import { AppShell, SessionState, useUser } from './app-shell';
 import { Field, Loading, Notice, SubmitButton } from './ui';
+import { ProfilePictureEditor } from './profile-picture';
 
 function normalize(profile: Partial<Profile>): Profile {
   const result = { ...emptyProfile, ...profile, skills: profile.skills || [], socialLinks: profile.socialLinks || {}, educations: profile.educations || [] };
@@ -14,12 +15,14 @@ function normalize(profile: Partial<Profile>): Profile {
 
 export function ProfileEditor() {
   const session = useUser(); const [profile, setProfile] = useState<Profile>(emptyProfile); const [skill, setSkill] = useState(''); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [loadError, setLoadError] = useState(''); const [success, setSuccess] = useState(''); const [reload, setReload] = useState(0);
+  const [pictureAvailable, setPictureAvailable] = useState(false);
+  const userId = session.user?.id;
   useEffect(() => {
-    if (!session.user) return;
+    if (!userId) return;
     let cancelled = false; setLoading(true); setError(''); setLoadError('');
-    api<{ profile: Profile }>('/profile').then(({ profile: data }) => { if (!cancelled) setProfile(normalize(data)); }).catch((err: unknown) => { if (!cancelled) setLoadError(errorMessage(err)); }).finally(() => { if (!cancelled) setLoading(false); });
+    api<{ profile: Profile; profilePictureAvailable: boolean }>('/profile').then(({ profile: data, profilePictureAvailable }) => { if (!cancelled) { setProfile(normalize(data)); setPictureAvailable(profilePictureAvailable === true); } }).catch((err: unknown) => { if (!cancelled) setLoadError(errorMessage(err)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [session.user, reload]);
+  }, [userId, reload]);
   function change<K extends keyof Profile>(key: K, value: Profile[K]) { setProfile((current) => ({ ...current, [key]: value })); setSuccess(''); }
   function addSkill() { const value = skill.trim(); if (!value) return; if (value.length > 60) { setError('A skill name must be 60 characters or fewer.'); return; } if (profile.skills.length >= 20) { setError('You can add up to 20 skills.'); return; } if (!profile.skills.some((s) => s.toLowerCase() === value.toLowerCase())) change('skills', [...profile.skills, value]); setSkill(''); }
   function updateEducation(index: number, key: keyof Education, value: string) { change('educations', profile.educations.map((entry, i) => i === index ? { ...entry, [key]: key === 'startYear' || key === 'endYear' ? value ? Number(value) : undefined : value } : entry)); }
@@ -37,6 +40,7 @@ export function ProfileEditor() {
   const profileInput = (key: 'phone' | 'city' | 'university' | 'department' | 'semester' | 'degree', label: string, placeholder: string, maxLength = 150) => <Field id={key} label={label}><input id={key} value={profile[key]} onChange={(event) => change(key, event.target.value)} placeholder={placeholder} maxLength={maxLength} type={key === 'phone' ? 'tel' : 'text'} autoComplete={key === 'phone' ? 'tel' : key === 'city' ? 'address-level2' : 'off'} /></Field>;
   return <AppShell user={user}><div className="page-heading"><div><span className="eyebrow">TELL YOUR OWN STORY</span><h1>My profile</h1><p>Show who you are through your education, skills and experience.</p></div><Link href="/dashboard" className="text-link"><ArrowLeft size={17} /> Dashboard</Link></div>
     {loading ? <Loading text="Loading your profile…" /> : loadError && <Notice>{loadError}</Notice>}
+    {!loading && !loadError && <ProfilePictureEditor user={user} available={pictureAvailable} onUserChange={session.updateUser} />}
     {!loading && !loadError && <form onSubmit={save} className="profile-form" aria-busy={saving}>
       <div className="profile-form-main">
         <section className="panel form-section" id="personal"><div className="form-section-heading"><span className="section-icon"><UserRound size={22} /></span><div><h2>Personal details</h2><p>Your account and contact information.</p></div><span className="section-index">01</span></div><div className="form-grid"><Field id="accountName" label="Full name"><input id="accountName" value={user.name} readOnly className="readonly-input" /></Field><Field id="accountEmail" label="Email"><input id="accountEmail" value={user.email} readOnly className="readonly-input" /></Field>{profileInput('phone', 'Phone number', 'e.g. 017XXXXXXXX', 30)}{profileInput('city', 'City', 'Your current city', 100)}<Field id="objective" label="Career objective" className="full-width" help="Briefly describe your interests, what you want to learn and your career goals."><textarea id="objective" value={profile.objective} onChange={(event) => change('objective', event.target.value)} placeholder="Tell us about your future goals…" rows={4} maxLength={1000} /></Field></div></section>

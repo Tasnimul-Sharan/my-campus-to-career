@@ -4,6 +4,7 @@ import { Database } from './database';
 import { ProfileDto } from './dto';
 import { SessionGuard, StudentGuard } from './security';
 import { AuthenticatedRequest, publicUser } from './session-types';
+import { config } from './config';
 
 const profileInclude = { educations: true, skills: true } as const;
 type FullProfile = Prisma.StudentProfileGetPayload<{ include: typeof profileInclude }>;
@@ -43,7 +44,7 @@ export class ProfileService {
 @UseGuards(SessionGuard, StudentGuard)
 export class ProfileController {
   constructor(private readonly profiles: ProfileService) {}
-  @Get() async get(@Req() req: AuthenticatedRequest) { return { profile: await this.profiles.get(req.currentUser.id) }; }
+  @Get() async get(@Req() req: AuthenticatedRequest) { return { profile: await this.profiles.get(req.currentUser.id), profilePictureAvailable: !!config.documents }; }
   @Patch() async update(@Req() req: AuthenticatedRequest, @Body() dto: ProfileDto) { return { profile: await this.profiles.update(req.currentUser.id, dto) }; }
 }
 @Controller('dashboard')

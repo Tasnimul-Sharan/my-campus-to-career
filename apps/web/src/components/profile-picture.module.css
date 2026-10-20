@@ -1,0 +1,42 @@
+.panel { margin-bottom: 25px; padding: 25px; }
+.heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
+.heading h2 { margin-top: 7px; font-size: 22px; line-height: 1.5; }
+.heading p { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.optional { padding: 4px 9px; border: 1px solid #dfe5d6; border-radius: 20px; color: #89977a; font-size: 10px; background: #f5f7ef; }
+.content { display: flex; align-items: center; gap: 27px; }
+.previewWrap { position: relative; flex-shrink: 0; padding: 3px; }
+.preview { display: grid; place-items: center; width: 112px; height: 112px; overflow: hidden; border: 4px solid #fefefa; border-radius: 50%; background: #e6eedf; box-shadow: 0 0 0 1px #c6d6bd, 0 6px 20px #164d4310; }
+.preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cameraBadge { display: grid; place-items: center; position: absolute; right: 2px; bottom: 4px; width: 30px; height: 30px; border: 3px solid #fefefa; border-radius: 50%; background: var(--teal); color: #fff; }
+.form { min-width: 0; flex: 1; }
+.selection { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
+.fileLabel { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border: 1px solid #cad7c3; border-radius: 7px; background: #f6f8f1; color: var(--teal); font-size: 12px; font-weight: 600; cursor: pointer; }
+.fileLabel:hover { background: var(--mint); border-color: #a8bd9e; }
+.fileLabel:has(input:focus-visible) { outline: 3px solid #d09264; outline-offset: 4px; }
+.fileLabel:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.removeButton { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; color: #a16c51; border: 0; background: transparent; font-size: 11px; }
+.removeButton:hover { color: #854e38; }
+.help { color: #85927b; font-size: 11px; line-height: 1.8; margin-top: 10px; }
+.chosen { display: flex; align-items: center; gap: 15px; margin: 14px 0; padding: 10px 12px; border: 1px solid #e0e7d9; border-radius: 7px; background: #fafbf7; max-width: 430px; }
+.chosen > div { min-width: 0; flex: 1; }
+.chosen strong { display: block; color: #5a7156; font-size: 11px; font-weight: 550; overflow-wrap: anywhere; }
+.chosen span { display: block; margin-top: 3px; color: #8a987e; font-size: 10px; }
+.chosen button { min-height: 30px; min-width: 30px; padding: 5px; }
+.submitRow { display: flex; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 14px; }
+.submitRow > button { font-size: 11px; min-height: 38px; padding: 10px 14px; }
+.removing { display: inline-flex; align-items: center; gap: 6px; color: #849276; font-size: 11px; }
+.privacy { display: flex; align-items: flex-start; gap: 7px; max-width: 155px; padding: 15px 0 15px 22px; border-left: 1px solid #e6ebdf; color: #89987c; font-size: 10px; line-height: 1.9; }
+.privacy svg { flex-shrink: 0; margin-top: 3px; }
+.availability { margin-top: 20px; padding: 12px 15px; border: 1px solid #eddfc8; border-radius: 7px; background: #fcf7ed; color: #927950; font-size: 11px; line-height: 1.9; }
+.notice { margin-top: 18px; }
+.notice > div { margin-bottom: 0; }
+.dialog { margin: auto; width: min(440px, calc(100% - 40px)); padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); box-shadow: 0 18px 80px #173c3633; }
+.dialog > svg { color: #b87b58; margin-bottom: 13px; }
+.dialog h2 { font-size: 23px; line-height: 1.5; }
+.dialog p { margin-top: 12px; color: #6c7c6b; font-size: 13px; }
+.dialog::backdrop { background: #173c3673; backdrop-filter: blur(3px); }
+.dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.removeConfirm { min-height: 42px; padding: 10px 16px; background: #a35c41; color: #fff; border: 1px solid #a35c41; border-radius: 7px; font-size: 13px; font-weight: 600; }
+.removeConfirm:hover { background: #8f4f38; }
+@media (max-width: 1200px) { .privacy { display: none; } }
+@media (max-width: 560px) { .panel { padding: 22px; }.heading { margin-bottom: 22px; }.heading h2 { font-size: 20px; }.content { align-items: flex-start; flex-direction: column; gap: 22px; }.form { width: 100%; }.selection { gap: 8px 14px; }.help { max-width: 270px; }.dialog { padding: 24px; }.dialog h2 { font-size: 21px; }.dialogActions > button { flex: 1; } }

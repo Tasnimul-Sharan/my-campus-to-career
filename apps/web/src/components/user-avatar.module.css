@@ -1,0 +1,4 @@
+.avatar { display: inline-grid; place-items: center; flex-shrink: 0; overflow: hidden; width: 37px; height: 37px; border: 1px solid #e0c7b1; border-radius: 50%; background: #ead8c7; color: #956044; font: 600 13px/1 'Segoe UI', Arial, sans-serif; vertical-align: middle; }
+.avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.small { width: 33px; height: 33px; font-size: 11px; border-color: #dce4d3; background: #edf0e3; color: #74855f; }
+.large { width: 112px; height: 112px; font-size: 32px; border: 4px solid #fefefa; box-shadow: 0 0 0 1px #d9e2d2, 0 6px 20px #164d4310; background: #e6eedf; color: var(--teal); }

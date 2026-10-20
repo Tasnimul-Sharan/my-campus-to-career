@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ArrowUpRight, LayoutDashboard, UserRound, ShieldCheck, LogOut, Menu, X, Mail, FolderOpen } from 'lucide-react';
 import { api, ApiError, errorMessage, type User } from '@/lib/api';
 import { clearVerificationDelivery, readVerificationDelivery, rememberVerificationDelivery, type VerificationDelivery } from '@/lib/verification-delivery';
 import { Brand, Loading, Notice } from './ui';
+import { UserAvatar } from './user-avatar';
 
 export function useUser(admin = false) {
   const router = useRouter();
@@ -26,7 +27,8 @@ export function useUser(admin = false) {
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [admin, router, reload]);
-  return { user, loading, error, retry: () => setReload((value) => value + 1) };
+  const updateUser = useCallback((next: User) => setUser((current) => current?.id === next.id ? next : current), []);
+  return { user, loading, error, retry: () => setReload((value) => value + 1), updateUser };
 }
 export function VerificationBanner({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false); const [result, setResult] = useState(''); const [failed, setFailed] = useState(false);
@@ -53,6 +55,6 @@ export function AppShell({ user, children, admin = false }: { user: User; childr
   const pathname = usePathname(); const router = useRouter(); const [menuOpen, setMenuOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   async function logout() { setBusy(true); setError(''); try { await api('/auth/logout', { method: 'POST', body: '{}' }); clearVerificationDelivery(); router.replace('/login'); router.refresh(); } catch (err) { setError(errorMessage(err)); } finally { setBusy(false); } }
   const links = admin ? [{ href: '/admin', label: 'Admin dashboard', icon: ShieldCheck }, { href: '/admin/documents', label: 'Student documents', icon: FolderOpen }] : [{ href: '/dashboard', label: 'My dashboard', icon: LayoutDashboard }, { href: '/profile', label: 'My profile', icon: UserRound }, { href: '/documents', label: 'My documents', icon: FolderOpen }];
-  return <div className="app-page"><header className="mobile-app-header"><Brand /><button className="icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button></header><aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}><Brand /><div className="workspace-label">{admin ? 'ADMIN WORKSPACE' : 'STUDENT WORKSPACE'}</div><nav aria-label="Dashboard navigation">{links.map(({ href, label, icon: Icon }) => <Link key={href} onClick={() => setMenuOpen(false)} href={href} className={`sidebar-link ${pathname === href ? 'active' : ''}`} aria-current={pathname === href ? 'page' : undefined}><Icon size={20} /><span>{label}</span>{pathname === href && <span className="active-dot" />}</Link>)}</nav><div className="sidebar-note"><span className="eyebrow">ONE STEP AT A TIME</span><p>The first step<br /><strong>is yours.</strong></p><ArrowUpRight size={28} /></div><div className="sidebar-user"><span className="avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><strong>{user.name}</strong><span>{admin ? 'Administrator' : 'Student account'}</span></div></div><button className="logout-button" onClick={logout} disabled={busy}><LogOut size={18} />{busy ? 'Signing out…' : 'Sign out'}</button>{error && <p role="alert" className="sidebar-error">{error}</p>}</aside>{menuOpen && <button className="menu-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}<main className="workspace" id="main-content"><div className="workspace-top"><span>{admin ? 'Manage your campus community' : 'Your campus. Your next chapter.'}</span><Link href="/" className="text-link">Website <ArrowUpRight size={16} /></Link></div>{!user.emailVerified && <VerificationBanner userId={user.id} />}{children}</main></div>;
+  return <div className="app-page"><header className="mobile-app-header"><Brand /><button className="icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button></header><aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}><Brand /><div className="workspace-label">{admin ? 'ADMIN WORKSPACE' : 'STUDENT WORKSPACE'}</div><nav aria-label="Dashboard navigation">{links.map(({ href, label, icon: Icon }) => <Link key={href} onClick={() => setMenuOpen(false)} href={href} className={`sidebar-link ${pathname === href ? 'active' : ''}`} aria-current={pathname === href ? 'page' : undefined}><Icon size={20} /><span>{label}</span>{pathname === href && <span className="active-dot" />}</Link>)}</nav><div className="sidebar-note"><span className="eyebrow">ONE STEP AT A TIME</span><p>The first step<br /><strong>is yours.</strong></p><ArrowUpRight size={28} /></div><div className="sidebar-user"><UserAvatar user={user} /><div><strong>{user.name}</strong><span>{admin ? 'Administrator' : 'Student account'}</span></div></div><button className="logout-button" onClick={logout} disabled={busy}><LogOut size={18} />{busy ? 'Signing out…' : 'Sign out'}</button>{error && <p role="alert" className="sidebar-error">{error}</p>}</aside>{menuOpen && <button className="menu-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}<main className="workspace" id="main-content"><div className="workspace-top"><span>{admin ? 'Manage your campus community' : 'Your campus. Your next chapter.'}</span><Link href="/" className="text-link">Website <ArrowUpRight size={16} /></Link></div>{!user.emailVerified && <VerificationBanner userId={user.id} />}{children}</main></div>;
 }
 export function SessionState({ loading, error, retry }: { loading: boolean; error: string; retry: () => void }) { if (loading) return <Loading text="Loading your account…" />; return <div className="session-error"><Notice>{error || 'Checking your account…'}</Notice>{error && <button className="button button-primary" onClick={retry}>Try again</button>}</div>; }
