@@ -7,7 +7,8 @@ Students can add, replace and remove an optional profile picture on `/profile`. 
 - Upload a still JPEG, PNG or WebP of at most **2 MiB** and **12 megapixels**. Animated images, SVG, GIF, corrupt images and renamed files with invalid image bytes are rejected.
 - The API decodes the image in a bounded worker, applies its orientation, crops it to a centered square and saves a **512 × 512 WebP**. Input metadata is discarded.
 - Cloudinary stores the image with delivery type `authenticated`. PostgreSQL keeps the asset key and the account's current picture reference.
-- The browser receives a same-origin `/api/v1/profile/picture/<userId>?v=<assetId>` URL. Session checks allow the owner and administrators to read it. Other students and signed-out visitors cannot fetch the image.
+- The account workspace receives a same-origin `/api/v1/profile/picture/<userId>?v=<assetId>` URL. Session checks allow the owner and administrators to read it. Other students and signed-out visitors cannot fetch this private route.
+- If the student explicitly publishes their talent profile, its directory picture is available through the separate `/api/v1/talent/<userId>/picture` route. That route checks current directory eligibility before and after downloading the image; unpublishing makes it unavailable. The underlying Cloudinary asset remains authenticated. See the [talent directory guide](talent-directory.md).
 - The API retrieves the image through a short-lived server-side Cloudinary request. Cloudinary credentials and signed provider URLs are not sent to the browser. Responses use `image/webp`, `nosniff` and `private, no-store`.
 - Pictures are optional and do not change the profile-completion calculation. A missing or unavailable picture falls back to the student's initial.
 

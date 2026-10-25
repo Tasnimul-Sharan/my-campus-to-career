@@ -44,5 +44,6 @@ export type Education = { institution: string; degree: string; field: string; st
 export type Profile = {
   phone: string; city: string; objective: string; university: string; department: string; semester: string; degree: string; passingYear: number | null;
   skills: string[]; socialLinks: { linkedin?: string; github?: string; portfolio?: string }; activities: string; educations: Education[];
+  talentCategory: '' | import('./talent').TalentCategory; headline: string; availability: import('./talent').TalentAvailability; directoryPublished: boolean;
 };
-export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, skills: [], socialLinks: {}, activities: '', educations: [] };
+export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, skills: [], socialLinks: {}, activities: '', educations: [], talentCategory: '', headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false };

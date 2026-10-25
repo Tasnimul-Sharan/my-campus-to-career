@@ -17,6 +17,7 @@
     "test:mail": "npm run build && node --test tests/mail.test.mjs",
     "test:documents": "npm run build && node --test tests/document-storage.test.mjs tests/documents.test.mjs",
     "test:profile-pictures": "npm run build && node --test tests/profile-picture-storage.test.mjs tests/profile-pictures.test.mjs",
+    "test:talent": "npm run build && node --test tests/talent.test.mjs tests/talent-pictures.test.mjs",
     "test:integration": "node --test tests/integration.test.mjs"
   },
   "dependencies": {
@@ -34,7 +35,7 @@
     "dotenv": "^17.2.3",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
-    "nodemailer": "10.1.0",
+    "nodemailer": "10.2.1",
     "pdf-lib": "1.17.1",
     "pg": "^8.16.3",
     "redis": "^5.9.0",

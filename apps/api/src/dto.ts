@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayUnique, IsArray, IsEmail, IsEnum, IsInt, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
-import { UserStatus } from '@prisma/client';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
+import { TalentAvailability, UserStatus } from '@prisma/client';
+import { TALENT_CATEGORY_SLUGS } from './talent-categories';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 const optionalUrl = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() || undefined : value;
@@ -39,6 +40,10 @@ export class EducationDto {
   @IsOptional() @IsInt() @Min(1950) @Max(2100) endYear?: number;
 }
 export class ProfileDto {
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(120) headline?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(['', ...TALENT_CATEGORY_SLUGS]) talentCategory?: string;
+  @ValidateIf((_, v) => v !== undefined) @IsEnum(TalentAvailability) availability?: TalentAvailability;
+  @ValidateIf((_, v) => v !== undefined) @IsBoolean() directoryPublished?: boolean;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(30) phone?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) city?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(1000) objective?: string;
@@ -59,3 +64,16 @@ export class StudentListDto {
   @Transform(trim) @IsOptional() @IsString() @MaxLength(100) search?: string;
 }
 export class StatusDto { @IsEnum(UserStatus) status!: UserStatus; }
+
+const optionalFilter = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() || undefined : value;
+
+export class TalentQueryDto {
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) q?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsIn(TALENT_CATEGORY_SLUGS) category?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) subject?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(150) university?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) city?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(60) skill?: string;
+  @Transform(optionalFilter) @ValidateIf((_, v) => v !== undefined) @IsEnum(TalentAvailability) availability?: TalentAvailability;
+  @Type(() => Number) @ValidateIf((_, v) => v !== undefined) @IsInt() @Min(1) @Max(10000) page?: number;
+}

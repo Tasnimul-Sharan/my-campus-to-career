@@ -1,6 +1,6 @@
 # MyCampusToCareer
 
-A campus-to-career platform for university students. The application includes student registration, sign-in, profiles, private PDF documents and an admin dashboard. All product pages, messages and emails use English.
+A campus-to-career platform for university students and employers discovering student talent. The application includes student registration, sign-in, profiles, an optional public talent directory, private PDF documents and an admin dashboard. All product pages, messages and emails use English.
 
 **Stack:** Next.js + Tailwind CSS + NestJS + TypeScript + PostgreSQL + Prisma. Local sessions use PostgreSQL; Redis is optional.
 
@@ -34,6 +34,8 @@ Keep `127.0.0.1` consistent when opening the app; switching between it and `loca
 The local database helper uses an isolated PostgreSQL data directory under `.local/postgres/`. It detects the installed Scoop PostgreSQL binaries or binaries on `PATH`. For another installation, set `POSTGRES_BIN` to its `bin` directory before running `db:start`. Use `npm run db:status` to inspect the project database and `npm run db:stop` to stop it. Stop the development web/API processes with Ctrl+C in their terminal.
 
 `npm run generate` generates the Prisma client required by the API, migrations and seed. Repeat it after Prisma schema changes. The development API uses TypeScript compilation and Node watch mode so NestJS receives the decorator metadata required for dependency injection and validation.
+
+The root dependency on `@nestjs/platform-express` keeps npm's root security overrides effective for the workspace's pinned Multer dependency. Keep its version aligned with `apps/api/package.json`; removing the root dependency can cause npm to retain the older transitive version even when the override is present. Production dependency audit and upload regression tests cover this arrangement.
 
 ## Docker alternative
 
@@ -73,7 +75,7 @@ docs/        Architecture and acceptance checks
 
 | Agreed feature | Phase-one scope |
 | --- | --- |
-| Student registration and profile | Registration, verification, login, reset password, profile editing and a private profile picture |
+| Student registration and profile | Registration, verification, login, reset password, profile editing, profile pictures and an opt-in talent directory with career categories and academic filters |
 | Course catalogue and enrollment | Planned for the next development phase |
 | Physical workshop registration | Planned |
 | Payment and confirmation | Planned; no live payments |
@@ -82,6 +84,8 @@ docs/        Architecture and acceptance checks
 | Admin dashboard | Basic overview, student management and document directory |
 
 Do not treat the planned modules as completed features. Their payment, seat-capacity and application rules will be implemented and tested in their respective phases. Follow the [Cloudinary document guide](docs/cloudinary-documents.md) before enabling PDF uploads in a deployment.
+
+Students can choose a career category and publish their profile from **My profile → Career interests**. Employers browse the homepage directory and open public profiles with student-selected professional links. Existing accounts stay private until the student opts in; email, phone and private documents are excluded. See the [talent directory guide](docs/talent-directory.md).
 
 ## Verify changes
 
@@ -94,6 +98,7 @@ npm run test:mail
 npm run test:gmail-auth
 npm run test:documents
 npm run test:profile-pictures
+npm run test:talent
 npm run test:integration
 ```
 

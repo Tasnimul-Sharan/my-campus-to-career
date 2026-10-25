@@ -39,6 +39,13 @@ enum ProfilePictureStatus {
   DELETING
 }
 
+enum TalentAvailability {
+  INTERNSHIP
+  FULL_TIME
+  PART_TIME
+  OPEN_TO_OPPORTUNITIES
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(100)
@@ -104,11 +111,18 @@ model StudentProfile {
   semester    String      @default("") @db.VarChar(30)
   degree      String      @default("") @db.VarChar(100)
   passingYear Int?
+  headline    String      @default("") @db.VarChar(120)
+  talentCategory String   @default("") @db.VarChar(60)
+  availability TalentAvailability @default(OPEN_TO_OPPORTUNITIES)
+  directoryPublished Boolean @default(false)
   socialLinks Json        @default("{}")
   activities  String      @default("") @db.VarChar(2000)
   educations  Education[]
   skills      Skill[]
   updatedAt   DateTime    @updatedAt
+
+  @@index([directoryPublished, talentCategory])
+  @@index([directoryPublished, updatedAt])
 }
 
 model Education {

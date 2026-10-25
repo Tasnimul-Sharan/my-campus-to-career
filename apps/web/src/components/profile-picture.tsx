@@ -112,7 +112,7 @@ export function ProfilePictureEditor({ user, available, onUserChange }: { user: 
         {file && <div className={styles.chosen}><div><strong>{file.name}</strong><span>{(file.size / 1024).toLocaleString('en-GB', { maximumFractionDigits: 0 })} KB · Ready to upload</span></div><button type="button" className="icon-button" disabled={!!busy} aria-label="Clear selected photo" onClick={() => { clearSelection(); setError(''); }}><X size={16} /></button></div>}
         <div className={styles.submitRow}><button type="submit" className="button button-primary button-small" disabled={!file || !canUpload}>{busy === 'upload' ? <LoaderCircle size={16} className="spin" /> : <UploadCloud size={16} />}{busy === 'upload' ? 'Uploading photo…' : user.profilePictureUrl ? 'Save new picture' : 'Upload picture'}</button>{busy === 'remove' && <span className={styles.removing} role="status"><LoaderCircle size={15} className="spin" />Removing picture…</span>}</div>
       </form>
-      <p className={styles.privacy}><LockKeyhole size={16} /><span>Visible to you and campus administrators.</span></p>
+      <p className={styles.privacy}><LockKeyhole size={16} /><span>Private unless you publish your talent profile.</span></p>
     </div>
     {!available && <p className={styles.availability} role="status">Photo uploads are temporarily unavailable. Please try again later.</p>}
     {available && !user.emailVerified && <p className={styles.availability}>Verify your email address to upload a profile picture. Use the verification link above.</p>}

@@ -1,38 +1,56 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, Check, GraduationCap, Link2, Plus, Save, Sparkles, Trash2, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { api, emptyProfile, errorMessage, type Education, type Profile } from '@/lib/api';
 import { AppShell, SessionState, useUser } from './app-shell';
 import { Field, Loading, Notice, SubmitButton } from './ui';
 import { ProfilePictureEditor } from './profile-picture';
+import { CareerInterests, publicationRequirements } from './career-interests';
+import { TALENT_AVAILABILITIES, TALENT_CATEGORIES } from '@/lib/talent';
 
 function normalize(profile: Partial<Profile>): Profile {
   const result = { ...emptyProfile, ...profile, skills: profile.skills || [], socialLinks: profile.socialLinks || {}, educations: profile.educations || [] };
-  for (const key of ['phone', 'city', 'objective', 'university', 'department', 'semester', 'degree', 'activities'] as const) result[key] = result[key] || '';
+  for (const key of ['phone', 'city', 'objective', 'university', 'department', 'semester', 'degree', 'activities', 'headline'] as const) result[key] = result[key] || '';
+  result.talentCategory = TALENT_CATEGORIES.some(category => category.slug === profile.talentCategory) ? profile.talentCategory! : '';
+  result.availability = TALENT_AVAILABILITIES.some(availability => availability.value === profile.availability) ? profile.availability! : 'OPEN_TO_OPPORTUNITIES';
+  result.directoryPublished = profile.directoryPublished === true;
+  return result;
+}
+
+function preserveNewEdits(current: Profile, submitted: Profile, saved: Profile): Profile {
+  const result = { ...saved };
+  for (const key of Object.keys(saved) as (keyof Profile)[]) {
+    if (JSON.stringify(current[key]) !== JSON.stringify(submitted[key])) Object.assign(result, { [key]: current[key] });
+  }
   return result;
 }
 
 export function ProfileEditor() {
   const session = useUser(); const [profile, setProfile] = useState<Profile>(emptyProfile); const [skill, setSkill] = useState(''); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [loadError, setLoadError] = useState(''); const [success, setSuccess] = useState(''); const [reload, setReload] = useState(0);
   const [pictureAvailable, setPictureAvailable] = useState(false);
+  const [savedDirectoryPublished, setSavedDirectoryPublished] = useState(false);
+  const editVersion = useRef(0);
   const userId = session.user?.id;
   useEffect(() => {
     if (!userId) return;
     let cancelled = false; setLoading(true); setError(''); setLoadError('');
-    api<{ profile: Profile; profilePictureAvailable: boolean }>('/profile').then(({ profile: data, profilePictureAvailable }) => { if (!cancelled) { setProfile(normalize(data)); setPictureAvailable(profilePictureAvailable === true); } }).catch((err: unknown) => { if (!cancelled) setLoadError(errorMessage(err)); }).finally(() => { if (!cancelled) setLoading(false); });
+    api<{ profile: Profile; profilePictureAvailable: boolean }>('/profile').then(({ profile: data, profilePictureAvailable }) => { if (!cancelled) { const loaded = normalize(data); setProfile(loaded); setSavedDirectoryPublished(loaded.directoryPublished); setPictureAvailable(profilePictureAvailable === true); } }).catch((err: unknown) => { if (!cancelled) setLoadError(errorMessage(err)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [userId, reload]);
-  function change<K extends keyof Profile>(key: K, value: Profile[K]) { setProfile((current) => ({ ...current, [key]: value })); setSuccess(''); }
+  function change<K extends keyof Profile>(key: K, value: Profile[K]) { editVersion.current++; setProfile((current) => ({ ...current, [key]: value })); setSuccess(''); }
   function addSkill() { const value = skill.trim(); if (!value) return; if (value.length > 60) { setError('A skill name must be 60 characters or fewer.'); return; } if (profile.skills.length >= 20) { setError('You can add up to 20 skills.'); return; } if (!profile.skills.some((s) => s.toLowerCase() === value.toLowerCase())) change('skills', [...profile.skills, value]); setSkill(''); }
   function updateEducation(index: number, key: keyof Education, value: string) { change('educations', profile.educations.map((entry, i) => i === index ? { ...entry, [key]: key === 'startYear' || key === 'endYear' ? value ? Number(value) : undefined : value } : entry)); }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(''); setSuccess('');
+    const submittedProfile = profile, submittedSkill = skill, submittedVersion = editVersion.current;
     let next = profile;
     if (skill.trim() && !profile.skills.some((s) => s.toLowerCase() === skill.trim().toLowerCase())) { if (profile.skills.length >= 20 || skill.trim().length > 60) { setError('The skill limit has been exceeded. Use up to 20 skills, with no more than 60 characters per skill.'); setSaving(false); return; } next = { ...profile, skills: [...profile.skills, skill.trim()] }; }
     const invalidEducation = next.educations.some((e) => e.startYear && e.endYear && e.startYear > e.endYear);
     if (invalidEducation) { setError('The education start year cannot be later than the end year.'); setSaving(false); return; }
-    try { const data = await api<{ profile?: Profile }>('/profile', { method: 'PATCH', body: JSON.stringify(next) }); setProfile(normalize(data.profile || next)); setSkill(''); setSuccess('Your profile has been saved successfully.'); }
+    const requirements = publicationRequirements(next, session.user?.emailVerified === true);
+    if (next.directoryPublished && requirements.length > 0) { setError(`To publish your profile: ${requirements.map(requirement => requirement.label).join(' ')} You can turn off publishing to save an unfinished profile privately.`); setSaving(false); return; }
+    try { const data = await api<{ profile?: Profile }>('/profile', { method: 'PATCH', body: JSON.stringify(next) }); const saved = normalize(data.profile || next); setProfile(current => preserveNewEdits(current, submittedProfile, saved)); setSavedDirectoryPublished(saved.directoryPublished); setSkill(current => current === submittedSkill ? '' : current); setSuccess(editVersion.current === submittedVersion ? 'Your profile has been saved successfully.' : 'Your submitted changes have been saved. Save again to keep your newer edits.'); }
     catch (err) { setError(errorMessage(err)); } finally { setSaving(false); }
   }
   if (!session.user) return <SessionState {...session} />;
@@ -49,8 +67,9 @@ export function ProfileEditor() {
         </section>
         <section className="panel form-section" id="skills"><div className="form-section-heading"><span className="section-icon"><Sparkles size={22} /></span><div><h2>Skills and activities</h2><p>What you can do and how you get involved on campus.</p></div><span className="section-index">03</span></div><Field id="skill" label="Skills" help="Add one skill at a time. You can include up to 20 skills."><div className="skill-input"><input id="skill" value={skill} maxLength={60} onChange={(event) => setSkill(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addSkill(); } }} placeholder="e.g. Excel, Public speaking" /><button type="button" className="button button-outline" onClick={addSkill} disabled={!skill.trim()}><Plus size={18} /> Add</button></div></Field><div className="editable-skills">{profile.skills.map((value) => <span className="skill-chip" key={value}>{value}<button type="button" onClick={() => change('skills', profile.skills.filter((s) => s !== value))} aria-label={`Remove ${value}`}><X size={14} /></button></span>)}</div><Field id="activities" label="Extracurricular activities" help="Describe your clubs, volunteering, competitions or other campus activities."><textarea id="activities" value={profile.activities} onChange={(event) => change('activities', event.target.value)} rows={4} placeholder="Tell us about your campus experience…" maxLength={2000} /></Field></section>
         <section className="panel form-section" id="links"><div className="form-section-heading"><span className="section-icon"><Link2 size={22} /></span><div><h2>Online presence</h2><p>Add relevant social and portfolio links.</p></div><span className="section-index">04</span></div><div className="form-grid">{(['linkedin', 'github', 'portfolio'] as const).map((key) => <Field key={key} id={key} label={key === 'linkedin' ? 'LinkedIn' : key === 'github' ? 'GitHub' : 'Portfolio / Website'} className={key === 'portfolio' ? 'full-width' : ''}><input id={key} type="url" value={profile.socialLinks[key] || ''} onChange={(event) => change('socialLinks', { ...profile.socialLinks, [key]: event.target.value })} placeholder={key === 'linkedin' ? 'https://linkedin.com/in/yourname' : key === 'github' ? 'https://github.com/yourname' : 'https://yourwebsite.com'} maxLength={500} /></Field>)}</div></section>
+        <CareerInterests profile={profile} userId={user.id} emailVerified={user.emailVerified} savedDirectoryPublished={savedDirectoryPublished} onChange={change} />
         <div className="profile-save-bar">{error && <Notice>{error}</Notice>}{success && <Notice success>{success}</Notice>}<div><p><Check size={17} /> Your details will be saved to your account profile.</p><SubmitButton busy={saving}>{saving ? 'Saving…' : 'Save profile'}{!saving && <Save size={18} />}</SubmitButton></div></div>
-      </div><aside className="profile-guide"><div className="panel"><span className="eyebrow">A LITTLE ABOUT YOU</span><h3>Your story,<br />in your own words.</h3><p>You can complete your profile over time. Start with the details you have.</p><nav aria-label="Profile sections"><a href="#personal">01 <span>Personal details</span></a><a href="#education">02 <span>Education details</span></a><a href="#skills">03 <span>Skills and activities</span></a><a href="#links">04 <span>Online presence</span></a></nav></div><div className="profile-tip"><Sparkles size={23} /><strong>A quick tip</strong><p>Include a specific interest and goal in your career objective. You can update it as your plans develop.</p></div></aside>
+      </div><aside className="profile-guide"><div className="panel"><span className="eyebrow">A LITTLE ABOUT YOU</span><h3>Your story,<br />in your own words.</h3><p>You can complete your profile over time. Start with the details you have.</p><nav aria-label="Profile sections"><a href="#personal">01 <span>Personal details</span></a><a href="#education">02 <span>Education details</span></a><a href="#skills">03 <span>Skills and activities</span></a><a href="#links">04 <span>Online presence</span></a><a href="#career-interests">05 <span>Career interests</span></a></nav></div><div className="profile-tip"><Sparkles size={23} /><strong>A quick tip</strong><p>Include a specific interest and goal in your career objective. You can update it as your plans develop.</p></div></aside>
     </form>}
     {!loading && loadError && <button className="button button-outline retry-profile" type="button" onClick={() => setReload((v) => v + 1)}>Reload profile</button>}
   </AppShell>;
