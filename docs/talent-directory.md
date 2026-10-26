@@ -6,7 +6,7 @@ The homepage helps employers browse students by their preferred career area. Aca
 
 Profiles are private by default, including accounts created before this feature. A verified, active student can publish their directory profile after adding a category, university, subject, career objective and at least one skill. Saving an incomplete profile privately remains supported. Students can unpublish from the same form.
 
-Publishing shares the student's name, picture, chosen category and headline, skills, city, university and subject. The public detail page also includes the career objective, academic history, campus activities and the LinkedIn, GitHub and portfolio links they choose to add. It does not share their account email, phone number, private PDF documents or authentication data.
+Publishing shares the student's name, picture, chosen category and headline, skills, city, university and subject. The public detail page also includes the career objective, academic history, campus activities and the LinkedIn, GitHub and portfolio links they choose to add. It does not share their account email, phone number, family background, private PDF documents or authentication data.
 
 Employers can view these profiles without an account and use the student's shared professional links to connect. A separate employer account, private messaging system and interview invitations are not part of this directory implementation. No email or hiring action is triggered by browsing.
 

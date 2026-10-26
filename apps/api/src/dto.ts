@@ -39,7 +39,18 @@ export class EducationDto {
   @IsOptional() @IsInt() @Min(1950) @Max(2100) startYear?: number;
   @IsOptional() @IsInt() @Min(1950) @Max(2100) endYear?: number;
 }
+export class FamilyBackgroundDto {
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) fatherName?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) fatherOccupation?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) motherName?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) motherOccupation?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) guardianName?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(60) guardianRelationship?: string;
+  @ValidateIf((_, v) => v !== undefined && v !== null) @IsInt() @Min(0) @Max(50) siblings?: number | null;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(1000) additionalInformation?: string;
+}
 export class ProfileDto {
+  @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => FamilyBackgroundDto) familyBackground?: FamilyBackgroundDto;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(120) headline?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(['', ...TALENT_CATEGORY_SLUGS]) talentCategory?: string;
   @ValidateIf((_, v) => v !== undefined) @IsEnum(TalentAvailability) availability?: TalentAvailability;

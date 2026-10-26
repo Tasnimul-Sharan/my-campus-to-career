@@ -116,6 +116,7 @@ model StudentProfile {
   availability TalentAvailability @default(OPEN_TO_OPPORTUNITIES)
   directoryPublished Boolean @default(false)
   socialLinks Json        @default("{}")
+  familyBackground Json   @default("{}")
   activities  String      @default("") @db.VarChar(2000)
   educations  Education[]
   skills      Skill[]

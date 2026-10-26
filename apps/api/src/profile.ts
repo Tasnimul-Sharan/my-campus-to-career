@@ -10,11 +10,35 @@ import { TALENT_CATEGORY_SLUGS } from './talent-categories';
 const profileInclude = { educations: true, skills: true } as const;
 type FullProfile = Prisma.StudentProfileGetPayload<{ include: typeof profileInclude }>;
 
+export type FamilyBackground = {
+  fatherName: string;
+  fatherOccupation: string;
+  motherName: string;
+  motherOccupation: string;
+  guardianName: string;
+  guardianRelationship: string;
+  siblings: number | null;
+  additionalInformation: string;
+};
+
+export function normalizeFamilyBackground(value: unknown): FamilyBackground {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const text = (key: string) => { const candidate = source[key]; return typeof candidate === 'string' ? candidate : ''; };
+  return {
+    fatherName: text('fatherName'), fatherOccupation: text('fatherOccupation'),
+    motherName: text('motherName'), motherOccupation: text('motherOccupation'),
+    guardianName: text('guardianName'), guardianRelationship: text('guardianRelationship'),
+    siblings: typeof source.siblings === 'number' && Number.isInteger(source.siblings) && source.siblings >= 0 && source.siblings <= 50 ? source.siblings : null,
+    additionalInformation: text('additionalInformation'),
+  };
+}
+
 function serialize(profile: FullProfile) {
   return { phone: profile.phone, city: profile.city, objective: profile.objective, university: profile.university,
     department: profile.department, semester: profile.semester, degree: profile.degree, passingYear: profile.passingYear,
     headline: profile.headline, talentCategory: profile.talentCategory, availability: profile.availability, directoryPublished: profile.directoryPublished,
-    socialLinks: profile.socialLinks, activities: profile.activities, skills: profile.skills.map(skill => skill.name),
+    socialLinks: profile.socialLinks, familyBackground: normalizeFamilyBackground(profile.familyBackground),
+    activities: profile.activities, skills: profile.skills.map(skill => skill.name),
     educations: profile.educations.map(({ institution, degree, field, startYear, endYear }) => ({ institution, degree, field, startYear, endYear })) };
 }
 @Injectable()
@@ -26,7 +50,7 @@ export class ProfileService {
   }
   async update(userId: string, dto: ProfileDto) {
     if (dto.educations?.some(e => e.startYear && e.endYear && e.endYear < e.startYear)) throw new BadRequestException('Education end year must not be earlier than its start year.');
-    const { skills, educations, socialLinks, ...fields } = dto;
+    const { skills, educations, socialLinks, familyBackground, ...fields } = dto;
     // Transformed DTOs contain declared optional properties with undefined values.
     // They must not erase current values while checking a partial update.
     const changedFields = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as typeof fields;
@@ -36,6 +60,11 @@ export class ProfileService {
       await tx.$queryRaw`SELECT "id" FROM "StudentProfile" WHERE "userId" = ${userId}::uuid FOR UPDATE`;
       const current = await tx.studentProfile.findUnique({ where: { userId }, include: { ...profileInclude, user: { select: { role: true, status: true, emailVerifiedAt: true } } } });
       if (!current) throw new NotFoundException('Student profile not found.');
+      const currentFamily = normalizeFamilyBackground(current.familyBackground);
+      const providedFamily = familyBackground === undefined ? undefined : Object.fromEntries(
+        Object.entries(familyBackground).filter(([key, value]) => Object.hasOwn(currentFamily, key) && value !== undefined),
+      );
+      const nextFamily = providedFamily === undefined ? undefined : normalizeFamilyBackground({ ...currentFamily, ...providedFamily });
       const next = { ...current, ...changedFields, skills: skills ?? current.skills.map(skill => skill.name) };
       if (next.directoryPublished) {
         if (current.user.role !== 'STUDENT' || current.user.status !== 'ACTIVE' || !current.user.emailVerifiedAt) {
@@ -50,6 +79,7 @@ export class ProfileService {
       }
       return tx.studentProfile.update({ where: { userId }, data: {
         ...changedFields,
+        ...(nextFamily !== undefined ? { familyBackground: JSON.parse(JSON.stringify(nextFamily)) as Prisma.InputJsonValue } : {}),
         ...(socialLinks !== undefined ? { socialLinks: JSON.parse(JSON.stringify(socialLinks)) as Prisma.InputJsonValue } : {}),
         ...(skills !== undefined ? { skills: { deleteMany: {}, create: skills.map(name => ({ name })) } } : {}),
         ...(educations !== undefined ? { educations: { deleteMany: {}, create: educations } } : {}),

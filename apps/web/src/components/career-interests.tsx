@@ -31,7 +31,7 @@ export function CareerInterests({ profile, userId, emailVerified, savedDirectory
   const visibilityChanged = profile.directoryPublished !== savedDirectoryPublished;
 
   return <section className="panel form-section" id="career-interests" aria-labelledby="career-interests-heading">
-    <div className="form-section-heading"><span className="section-icon"><BriefcaseBusiness size={22} /></span><div><h2 id="career-interests-heading">Career interests</h2><p>Choose your direction and how you would like to be discovered.</p></div><span className="section-index">05</span></div>
+    <div className="form-section-heading"><span className="section-icon"><BriefcaseBusiness size={22} /></span><div><h2 id="career-interests-heading">Career interests</h2><p>Choose your direction and how you would like to be discovered.</p></div><span className="section-index">06</span></div>
     <div className="form-grid">
       <Field id="talentCategory" label="Primary career category" help="Choose the work that interests you. Your academic subject does not limit this choice.">
         <select className={styles.select} id="talentCategory" value={profile.talentCategory} onChange={event => onChange('talentCategory', event.target.value as Profile['talentCategory'])}>
@@ -57,7 +57,7 @@ export function CareerInterests({ profile, userId, emailVerified, savedDirectory
         <span><strong>Publish my profile in the student talent directory</strong><span>Make my profile discoverable in the searchable homepage directory.</span></span>
       </label>
       <p id="directory-public-information" className={styles.sharedInformation}>Visitors can see your name, photo, university, department, city, skills, career interests and headline. Your public profile also shares your career objective, academic qualifications, campus activities and any LinkedIn, GitHub or portfolio links you add.</p>
-      <p id="directory-privacy" className={styles.privacy}><ShieldCheck size={17} /><span>Your email address, phone number and private PDFs are never included in the public directory.</span></p>
+      <p id="directory-privacy" className={styles.privacy}><ShieldCheck size={17} /><span>Your email address, phone number, family background and private PDFs are never included in the public directory.</span></p>
       <p id="directory-visibility-help" className={styles.saveHelp}>{visibilityChanged
         ? profile.directoryPublished ? 'Save your profile to publish these details.' : 'Your profile is still public. Save your profile to remove it from the directory.'
         : 'You can unpublish at any time by turning this off and saving your profile.'}</p>
