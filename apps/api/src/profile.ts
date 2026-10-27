@@ -17,6 +17,7 @@ export type FamilyBackground = {
   motherOccupation: string;
   guardianName: string;
   guardianRelationship: string;
+  religion: string;
   siblings: number | null;
   additionalInformation: string;
 };
@@ -28,6 +29,7 @@ export function normalizeFamilyBackground(value: unknown): FamilyBackground {
     fatherName: text('fatherName'), fatherOccupation: text('fatherOccupation'),
     motherName: text('motherName'), motherOccupation: text('motherOccupation'),
     guardianName: text('guardianName'), guardianRelationship: text('guardianRelationship'),
+    religion: text('religion'),
     siblings: typeof source.siblings === 'number' && Number.isInteger(source.siblings) && source.siblings >= 0 && source.siblings <= 50 ? source.siblings : null,
     additionalInformation: text('additionalInformation'),
   };

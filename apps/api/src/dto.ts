@@ -46,6 +46,7 @@ export class FamilyBackgroundDto {
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) motherOccupation?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) guardianName?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(60) guardianRelationship?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) religion?: string;
   @ValidateIf((_, v) => v !== undefined && v !== null) @IsInt() @Min(0) @Max(50) siblings?: number | null;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(1000) additionalInformation?: string;
 }

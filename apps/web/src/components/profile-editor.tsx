@@ -13,7 +13,7 @@ import { FamilyBackgroundSection } from './family-background';
 function normalize(profile: Partial<Profile>): Profile {
   const result = { ...emptyProfile, ...profile, skills: profile.skills || [], socialLinks: profile.socialLinks || {}, educations: profile.educations || [], familyBackground: { ...emptyProfile.familyBackground, ...profile.familyBackground } };
   for (const key of ['phone', 'city', 'objective', 'university', 'department', 'semester', 'degree', 'activities', 'headline'] as const) result[key] = result[key] || '';
-  for (const key of ['fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName', 'guardianRelationship', 'additionalInformation'] as const) result.familyBackground[key] = result.familyBackground[key] || '';
+  for (const key of ['fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName', 'guardianRelationship', 'religion', 'additionalInformation'] as const) result.familyBackground[key] = result.familyBackground[key] || '';
   result.familyBackground.siblings ??= null;
   result.talentCategory = TALENT_CATEGORIES.some(category => category.slug === profile.talentCategory) ? profile.talentCategory! : '';
   result.availability = TALENT_AVAILABILITIES.some(availability => availability.value === profile.availability) ? profile.availability! : 'OPEN_TO_OPPORTUNITIES';

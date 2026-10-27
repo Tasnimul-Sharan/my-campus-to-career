@@ -17,7 +17,7 @@ const { AdminController } = require('../dist/admin.js');
 const { plainToInstance } = require('class-transformer');
 const { validateSync } = require('class-validator');
 
-const empty = { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', siblings: null, additionalInformation: '' };
+const empty = { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' };
 const sentinel = 'NeverPublicFamilySentinel';
 function fixture(overrides = {}) {
   const userId = randomUUID();
@@ -68,27 +68,27 @@ test('Old accounts always receive canonical optional family fields in the privat
     assert.deepEqual(result.familyBackground, empty);
   }
   assert.deepEqual(normalizeFamilyBackground({ fatherName: 'Existing parent', siblings: 2, unknown: 'ignored' }), { ...empty, fatherName: 'Existing parent', siblings: 2 });
-  assert.deepEqual(normalizeFamilyBackground({ fatherName: 7, siblings: -1 }), empty);
+  assert.deepEqual(normalizeFamilyBackground({ fatherName: 7, religion: 7, siblings: -1 }), empty);
 });
 
 test('Private family data saves under the existing owner row lock and trims strings', async () => {
   const row = fixture(), db = database(row), service = new ProfileService(db);
   const dto = validated({ familyBackground: { fatherName: '  Parent A  ', fatherOccupation: '  Teacher  ', motherName: ' Parent B ',
-    motherOccupation: ' Engineer ', guardianName: ' Guardian ', guardianRelationship: ' Aunt ', siblings: 0, additionalInformation: ' Optional details ' } });
+    motherOccupation: ' Engineer ', guardianName: ' Guardian ', guardianRelationship: ' Aunt ', religion: ' Personal belief ', siblings: 0, additionalInformation: ' Optional details ' } });
   const saved = await service.update(row.userId, dto);
-  assert.deepEqual(saved.familyBackground, { fatherName: 'Parent A', fatherOccupation: 'Teacher', motherName: 'Parent B', motherOccupation: 'Engineer', guardianName: 'Guardian', guardianRelationship: 'Aunt', siblings: 0, additionalInformation: 'Optional details' });
+  assert.deepEqual(saved.familyBackground, { fatherName: 'Parent A', fatherOccupation: 'Teacher', motherName: 'Parent B', motherOccupation: 'Engineer', guardianName: 'Guardian', guardianRelationship: 'Aunt', religion: 'Personal belief', siblings: 0, additionalInformation: 'Optional details' });
   assert.deepEqual(db.row.familyBackground, saved.familyBackground);
   assert.deepEqual((await service.get(row.userId)).familyBackground, saved.familyBackground);
   assert.equal(db.calls[0][0], 'lock'); assert.equal(saved.university, row.university); assert.deepEqual(saved.skills, ['TypeScript']);
 });
 
 test('Nested partial patches preserve unspecified values and allow explicit empty strings or null siblings', async () => {
-  const current = { ...empty, fatherName: 'Keep father', fatherOccupation: 'Keep occupation', motherName: 'Keep mother', siblings: 3, additionalInformation: 'Keep additional text' };
+  const current = { ...empty, fatherName: 'Keep father', fatherOccupation: 'Keep occupation', motherName: 'Keep mother', religion: 'Keep personal belief', siblings: 3, additionalInformation: 'Keep additional text' };
   const row = fixture({ familyBackground: current }), db = database(row), service = new ProfileService(db);
   const first = await service.update(row.userId, validated({ familyBackground: { guardianName: ' New guardian ' } }));
   assert.deepEqual(first.familyBackground, { ...current, guardianName: 'New guardian' });
-  const second = await service.update(row.userId, validated({ familyBackground: { fatherName: '', siblings: null } }));
-  assert.deepEqual(second.familyBackground, { ...current, fatherName: '', siblings: null, guardianName: 'New guardian' });
+  const second = await service.update(row.userId, validated({ familyBackground: { fatherName: '', religion: '', siblings: null } }));
+  assert.deepEqual(second.familyBackground, { ...current, fatherName: '', religion: '', siblings: null, guardianName: 'New guardian' });
   const third = await service.update(row.userId, validated({ familyBackground: {} }));
   assert.deepEqual(third.familyBackground, second.familyBackground);
   const fourth = await service.update(row.userId, validated({ city: 'Sylhet' }));
@@ -111,15 +111,15 @@ test('Family background adds no completion or public profile publication require
   const before = await service.get(row.userId), beforeCompletion = service.completion(before);
   const published = await service.update(row.userId, validated({ directoryPublished: true }));
   assert.equal(published.directoryPublished, true); assert.deepEqual(published.familyBackground, empty);
-  const after = await service.update(row.userId, validated({ familyBackground: { fatherName: sentinel, siblings: 4 } }));
+  const after = await service.update(row.userId, validated({ familyBackground: { fatherName: sentinel, religion: sentinel, siblings: 4 } }));
   assert.equal(service.completion(after), beforeCompletion); assert.equal(after.directoryPublished, true);
 });
 
 test('Strict nested validation rejects malformed objects, null strings, extra sensitive fields and limits', () => {
   const invalid = value => validateSync(plainToInstance(ProfileDto, { familyBackground: value }), { whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true }).length > 0;
   for (const value of [null, [], 'text', 1, true, { siblings: -1 }, { siblings: 51 }, { siblings: 1.5 }, { siblings: '2' },
-    { income: 'unsupported' }, { religion: 'unsupported' }, { nationalId: 'unsupported' }, { address: 'unsupported' }, { userId: randomUUID() }]) assert.equal(invalid(value), true);
-  for (const key of ['fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName']) {
+    { income: 'unsupported' }, { religion: 7 }, { religion: [] }, { religion: {} }, { religion: true }, { nationalId: 'unsupported' }, { address: 'unsupported' }, { userId: randomUUID() }]) assert.equal(invalid(value), true);
+  for (const key of ['fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName', 'religion']) {
     assert.equal(invalid({ [key]: 'a'.repeat(101) }), true); assert.equal(invalid({ [key]: null }), true);
     validated({ familyBackground: { [key]: 'a'.repeat(100) } });
   }
@@ -138,7 +138,7 @@ function selected(row, projection) {
 }
 
 test('Public talent card, detail, metadata, search and admin student output exclude all family data', async () => {
-  const row = fixture({ directoryPublished: true, familyBackground: { ...empty, fatherName: sentinel, additionalInformation: sentinel } });
+  const row = fixture({ directoryPublished: true, familyBackground: { ...empty, fatherName: sentinel, religion: sentinel, additionalInformation: sentinel } });
   const calls = [];
   const db = {
     studentProfile: {
@@ -154,9 +154,10 @@ test('Public talent card, detail, metadata, search and admin student output excl
   const talent = new TalentService(db), admin = new AdminController(db);
   const outputs = await Promise.all([talent.list({}), talent.detail(row.userId), talent.meta(), admin.students({})]);
   const serialized = JSON.stringify(outputs);
-  assert.equal(serialized.includes('familyBackground'), false); assert.equal(serialized.includes(sentinel), false);
+  assert.equal(serialized.includes('religion'), false); assert.equal(serialized.includes('familyBackground'), false); assert.equal(serialized.includes(sentinel), false);
   assert.equal(JSON.stringify(calls).includes('familyBackground'), false);
   const searchPredicate = talentSearchWhere({ q: sentinel });
   assert.equal(JSON.stringify(searchPredicate).includes('familyBackground'), false);
   assert.equal(JSON.stringify(searchPredicate).includes('fatherName'), false);
+  assert.equal(JSON.stringify(searchPredicate).includes('religion'), false);
 });
