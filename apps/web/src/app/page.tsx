@@ -4,6 +4,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, Code2, GraduationCap, Light
 import { Brand } from '@/components/ui';
 import { SmoothScroll } from '@/components/smooth-scroll';
 import { TalentDirectory } from '@/components/talent-directory';
+import { AffiliatedCompanies } from '@/components/affiliated-companies';
 import './home.css';
 
 export const metadata: Metadata = {
@@ -63,6 +64,7 @@ export default function Home() {
         </div>
 
         <TalentDirectory />
+        <AffiliatedCompanies />
 
         <section className="approach-section" id="our-approach" aria-labelledby="approach-title">
           <div className="container approach-inner">
