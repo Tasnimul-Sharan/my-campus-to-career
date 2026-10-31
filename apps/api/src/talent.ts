@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { Database } from './database';
 import { TalentQueryDto } from './dto';
 import { config } from './config';
+import { normalizeSocialLinks } from './profile';
 import { TALENT_AVAILABILITIES, TALENT_CATEGORIES, TALENT_CATEGORY_SLUGS } from './talent-categories';
 
 export const TALENT_PAGE_SIZE = 9;
@@ -49,25 +50,27 @@ const cardSelect = {
 } satisfies Prisma.StudentProfileSelect;
 
 const detailSelect = {
-  ...cardSelect, degree: true, semester: true, passingYear: true, activities: true, socialLinks: true,
-  educations: { select: { institution: true, degree: true, field: true, startYear: true, endYear: true }, orderBy: { id: 'asc' }, take: 10 },
+  ...cardSelect, degree: true, semester: true, passingYear: true, cgpa: true, cgpaScale: true, activities: true, socialLinks: true,
+  educations: { select: { institution: true, degree: true, field: true, startYear: true, endYear: true, cgpa: true, cgpaScale: true }, orderBy: { id: 'asc' }, take: 10 },
 } satisfies Prisma.StudentProfileSelect;
 
 type PublicCardProfile = Prisma.StudentProfileGetPayload<{ select: typeof cardSelect }>;
 type PublicDetailProfile = Prisma.StudentProfileGetPayload<{ select: typeof detailSelect }>;
 
 export function safePublicLinks(value: Prisma.JsonValue) {
-  const result: Record<string, string> = {};
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return result;
-  for (const key of ['linkedin', 'github', 'portfolio']) {
-    const candidate = value[key];
-    if (typeof candidate !== 'string' || candidate.length > 500) continue;
-    try {
-      const url = new URL(candidate);
-      if (['https:', 'http:'].includes(url.protocol) && url.hostname && !url.username && !url.password) result[key] = candidate;
-    } catch { /* Legacy malformed URLs stay private. */ }
+  const normalized = normalizeSocialLinks(value);
+  const result: ReturnType<typeof normalizeSocialLinks> = {};
+  for (const key of ['linkedin', 'github', 'portfolio'] as const) {
+    if (normalized[key]) result[key] = normalized[key];
   }
+  if (normalized.additional?.length) result.additional = normalized.additional.map(({ label, url }) => ({ label, url }));
   return result;
+}
+
+function publicGrade(value: Prisma.Decimal | null | undefined, scale: number | undefined) {
+  const cgpaScale = scale === 5 ? 5 : 4;
+  const grade = value == null ? null : Number(value);
+  return { cgpa: grade !== null && Number.isFinite(grade) && grade >= 0 && grade <= cgpaScale ? grade : null, cgpaScale };
 }
 
 function publicCard(profile: PublicCardProfile) {
@@ -86,7 +89,9 @@ function publicCard(profile: PublicCardProfile) {
 
 function publicDetail(profile: PublicDetailProfile) {
   return { ...publicCard(profile), degree: profile.degree, semester: profile.semester, passingYear: profile.passingYear,
-    objective: profile.objective, activities: profile.activities, educations: profile.educations,
+    ...publicGrade(profile.cgpa, profile.cgpaScale),
+    objective: profile.objective, activities: profile.activities,
+    educations: profile.educations.map(education => ({ ...education, ...publicGrade(education.cgpa, education.cgpaScale) })),
     socialLinks: safePublicLinks(profile.socialLinks) };
 }
 

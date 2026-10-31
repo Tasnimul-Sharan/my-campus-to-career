@@ -40,15 +40,17 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
 export const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 export type User = { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN'; emailVerified: boolean; status: 'ACTIVE' | 'SUSPENDED'; createdAt?: string; profilePictureUrl?: string | null };
-export type Education = { institution: string; degree: string; field: string; startYear?: number; endYear?: number };
+export type AdditionalSocialLink = { label: string; url: string };
+export type SocialLinks = { linkedin?: string; github?: string; portfolio?: string; additional?: AdditionalSocialLink[] };
+export type Education = { institution: string; degree: string; field: string; startYear?: number; endYear?: number; cgpa?: number | null; cgpaScale?: 4 | 5 };
 export type FamilyBackground = {
   fatherName: string; fatherOccupation: string; motherName: string; motherOccupation: string;
   guardianName: string; guardianRelationship: string; religion: string; siblings: number | null; additionalInformation: string;
 };
 export type Profile = {
-  phone: string; city: string; objective: string; university: string; department: string; semester: string; degree: string; passingYear: number | null;
-  skills: string[]; socialLinks: { linkedin?: string; github?: string; portfolio?: string }; activities: string; educations: Education[];
+  phone: string; city: string; objective: string; university: string; department: string; semester: string; degree: string; passingYear: number | null; cgpa: number | null; cgpaScale: 4 | 5;
+  skills: string[]; socialLinks: SocialLinks; activities: string; educations: Education[];
   talentCategory: '' | import('./talent').TalentCategory; headline: string; availability: import('./talent').TalentAvailability; directoryPublished: boolean;
   familyBackground: FamilyBackground;
 };
-export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, skills: [], socialLinks: {}, activities: '', educations: [], talentCategory: '', headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' } };
+export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, cgpa: null, cgpaScale: 4, skills: [], socialLinks: { additional: [] }, activities: '', educations: [], talentCategory: '', headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' } };

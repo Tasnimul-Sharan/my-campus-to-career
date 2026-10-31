@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Check,
   GraduationCap,
-  Link2,
   Plus,
   Save,
   Sparkles,
@@ -26,14 +25,18 @@ import { ProfilePictureEditor } from "./profile-picture";
 import { CareerInterests, publicationRequirements } from "./career-interests";
 import { TALENT_AVAILABILITIES, TALENT_CATEGORIES } from "@/lib/talent";
 import { FamilyBackgroundSection } from "./family-background";
+import { AcademicGradeFields } from "./academic-grade";
+import { OnlinePresenceSection } from "./online-presence";
 
 function normalize(profile: Partial<Profile>): Profile {
   const result = {
     ...emptyProfile,
     ...profile,
     skills: profile.skills || [],
-    socialLinks: profile.socialLinks || {},
-    educations: profile.educations || [],
+    socialLinks: { ...profile.socialLinks, additional: Array.isArray(profile.socialLinks?.additional) ? profile.socialLinks.additional.map(link => ({ label: link.label || "", url: link.url || "" })) : [] },
+    cgpa: profile.cgpa ?? null,
+    cgpaScale: profile.cgpaScale === 5 ? 5 as const : 4 as const,
+    educations: (profile.educations || []).map(entry => ({ ...entry, cgpa: entry.cgpa ?? null, cgpaScale: entry.cgpaScale === 5 ? 5 as const : 4 as const })),
     familyBackground: {
       ...emptyProfile.familyBackground,
       ...profile.familyBackground,
@@ -196,6 +199,12 @@ export function ProfileEditor() {
     );
     if (invalidEducation) {
       setError("The education start year cannot be later than the end year.");
+      setSaving(false);
+      return;
+    }
+    const invalidGrade = (grade: number | null | undefined, scale: number | undefined) => grade != null && (!Number.isFinite(grade) || grade < 0 || grade > (scale || 4) || Math.abs(grade * 100 - Math.round(grade * 100)) > 0.000001);
+    if (invalidGrade(next.cgpa, next.cgpaScale) || next.educations.some(entry => invalidGrade(entry.cgpa, entry.cgpaScale))) {
+      setError("Enter a CGPA between 0 and its selected scale, using up to two decimal places, or leave it blank.");
       setSaving(false);
       return;
     }
@@ -382,6 +391,7 @@ export function ProfileEditor() {
                     }
                   />
                 </Field>
+                <AcademicGradeFields id="primary" cgpa={profile.cgpa} scale={profile.cgpaScale} onChange={(cgpa, cgpaScale) => { editVersion.current++; setProfile(current => ({ ...current, cgpa, cgpaScale })); setSuccess(""); }} />
               </div>
               <div className="additional-education">
                 <div className="subsection-heading">
@@ -393,7 +403,7 @@ export function ProfileEditor() {
                     onClick={() =>
                       change("educations", [
                         ...profile.educations,
-                        { institution: "", degree: "", field: "" },
+                        { institution: "", degree: "", field: "", cgpa: null, cgpaScale: 4 },
                       ])
                     }
                   >
@@ -452,6 +462,7 @@ export function ProfileEditor() {
                           </Field>
                         ),
                       )}
+                      <AcademicGradeFields id={`education-${index}`} cgpa={entry.cgpa ?? null} scale={entry.cgpaScale === 5 ? 5 : 4} onChange={(cgpa, cgpaScale) => change("educations", profile.educations.map((education, i) => i === index ? { ...education, cgpa, cgpaScale } : education))} />
                       <div className="year-grid">
                         {(["startYear", "endYear"] as const).map((key) => (
                           <Field
@@ -553,54 +564,7 @@ export function ProfileEditor() {
                 />
               </Field>
             </section>
-            <section className="panel form-section" id="links">
-              <div className="form-section-heading">
-                <span className="section-icon">
-                  <Link2 size={22} />
-                </span>
-                <div>
-                  <h2>Online presence</h2>
-                  <p>Add relevant social and portfolio links.</p>
-                </div>
-                <span className="section-index">05</span>
-              </div>
-              <div className="form-grid">
-                {(["linkedin", "github", "portfolio"] as const).map((key) => (
-                  <Field
-                    key={key}
-                    id={key}
-                    label={
-                      key === "linkedin"
-                        ? "LinkedIn"
-                        : key === "github"
-                          ? "GitHub"
-                          : "Portfolio / Website"
-                    }
-                    className={key === "portfolio" ? "full-width" : ""}
-                  >
-                    <input
-                      id={key}
-                      type="url"
-                      value={profile.socialLinks[key] || ""}
-                      onChange={(event) =>
-                        change("socialLinks", {
-                          ...profile.socialLinks,
-                          [key]: event.target.value,
-                        })
-                      }
-                      placeholder={
-                        key === "linkedin"
-                          ? "https://linkedin.com/in/yourname"
-                          : key === "github"
-                            ? "https://github.com/yourname"
-                            : "https://yourwebsite.com"
-                      }
-                      maxLength={500}
-                    />
-                  </Field>
-                ))}
-              </div>
-            </section>
+            <OnlinePresenceSection value={profile.socialLinks} onChange={value => change("socialLinks", value)} />
             <CareerInterests
               profile={profile}
               userId={user.id}

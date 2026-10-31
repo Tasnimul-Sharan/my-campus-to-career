@@ -35,13 +35,55 @@ export function normalizeFamilyBackground(value: unknown): FamilyBackground {
   };
 }
 
+export type SocialLinks = {
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  additional?: { label: string; url: string }[];
+};
+
+export function safeSocialUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const candidate = value.trim();
+  if (!candidate || candidate.length > 500 || /[\x00-\x20\x7f]/.test(candidate)) return undefined;
+  try {
+    const url = new URL(candidate);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? candidate : undefined;
+  } catch { return undefined; }
+}
+
+export function normalizeSocialLinks(value: unknown): SocialLinks {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const result: SocialLinks = {};
+  for (const key of ['linkedin', 'github', 'portfolio'] as const) {
+    const url = safeSocialUrl(source[key]);
+    if (url) result[key] = url;
+  }
+  const additional = Array.isArray(source.additional) ? source.additional.slice(0, 8).flatMap(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    const url = safeSocialUrl(item.url);
+    return label && label.length <= 40 && url ? [{ label, url }] : [];
+  }) : [];
+  if (additional.length) result.additional = additional;
+  return result;
+}
+
+function assertCgpa(cgpa: unknown, scale: number, label: string) {
+  const value = cgpa == null ? null : Number(cgpa);
+  if (![4, 5].includes(scale) || value !== null && (!Number.isFinite(value) || value < 0 || value > scale)) {
+    throw new BadRequestException(label + ' CGPA must be between 0 and the selected grading scale.');
+  }
+}
+
 function serialize(profile: FullProfile) {
   return { phone: profile.phone, city: profile.city, objective: profile.objective, university: profile.university,
     department: profile.department, semester: profile.semester, degree: profile.degree, passingYear: profile.passingYear,
+    cgpa: profile.cgpa == null ? null : Number(profile.cgpa), cgpaScale: profile.cgpaScale ?? 4,
     headline: profile.headline, talentCategory: profile.talentCategory, availability: profile.availability, directoryPublished: profile.directoryPublished,
-    socialLinks: profile.socialLinks, familyBackground: normalizeFamilyBackground(profile.familyBackground),
+    socialLinks: normalizeSocialLinks(profile.socialLinks), familyBackground: normalizeFamilyBackground(profile.familyBackground),
     activities: profile.activities, skills: profile.skills.map(skill => skill.name),
-    educations: profile.educations.map(({ institution, degree, field, startYear, endYear }) => ({ institution, degree, field, startYear, endYear })) };
+    educations: profile.educations.map(({ institution, degree, field, startYear, endYear, cgpa, cgpaScale }) => ({ institution, degree, field, startYear, endYear, cgpa: cgpa == null ? null : Number(cgpa), cgpaScale: cgpaScale ?? 4 })) };
 }
 @Injectable()
 export class ProfileService {
@@ -53,6 +95,7 @@ export class ProfileService {
   async update(userId: string, dto: ProfileDto) {
     if (dto.educations?.some(e => e.startYear && e.endYear && e.endYear < e.startYear)) throw new BadRequestException('Education end year must not be earlier than its start year.');
     const { skills, educations, socialLinks, familyBackground, ...fields } = dto;
+    for (const entry of educations ?? []) assertCgpa(entry.cgpa, entry.cgpaScale ?? 4, 'Qualification');
     // Transformed DTOs contain declared optional properties with undefined values.
     // They must not erase current values while checking a partial update.
     const changedFields = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as typeof fields;
@@ -62,6 +105,11 @@ export class ProfileService {
       await tx.$queryRaw`SELECT "id" FROM "StudentProfile" WHERE "userId" = ${userId}::uuid FOR UPDATE`;
       const current = await tx.studentProfile.findUnique({ where: { userId }, include: { ...profileInclude, user: { select: { role: true, status: true, emailVerifiedAt: true } } } });
       if (!current) throw new NotFoundException('Student profile not found.');
+      assertCgpa(changedFields.cgpa !== undefined ? changedFields.cgpa : current.cgpa, changedFields.cgpaScale ?? current.cgpaScale ?? 4, 'Profile');
+      const providedSocial = socialLinks === undefined ? undefined : Object.fromEntries(
+        Object.entries(socialLinks).filter(([key, value]) => ['linkedin', 'github', 'portfolio', 'additional'].includes(key) && value !== undefined),
+      );
+      const nextSocial = providedSocial === undefined ? undefined : normalizeSocialLinks({ ...normalizeSocialLinks(current.socialLinks), ...providedSocial });
       const currentFamily = normalizeFamilyBackground(current.familyBackground);
       const providedFamily = familyBackground === undefined ? undefined : Object.fromEntries(
         Object.entries(familyBackground).filter(([key, value]) => Object.hasOwn(currentFamily, key) && value !== undefined),
@@ -82,9 +130,9 @@ export class ProfileService {
       return tx.studentProfile.update({ where: { userId }, data: {
         ...changedFields,
         ...(nextFamily !== undefined ? { familyBackground: JSON.parse(JSON.stringify(nextFamily)) as Prisma.InputJsonValue } : {}),
-        ...(socialLinks !== undefined ? { socialLinks: JSON.parse(JSON.stringify(socialLinks)) as Prisma.InputJsonValue } : {}),
+        ...(nextSocial !== undefined ? { socialLinks: JSON.parse(JSON.stringify(nextSocial)) as Prisma.InputJsonValue } : {}),
         ...(skills !== undefined ? { skills: { deleteMany: {}, create: skills.map(name => ({ name })) } } : {}),
-        ...(educations !== undefined ? { educations: { deleteMany: {}, create: educations } } : {}),
+        ...(educations !== undefined ? { educations: { deleteMany: {}, create: educations.map(entry => ({ ...entry, cgpa: entry.cgpa ?? null, cgpaScale: entry.cgpaScale ?? 4 })) } } : {}),
       }, include: profileInclude });
     });
     return serialize(profile);

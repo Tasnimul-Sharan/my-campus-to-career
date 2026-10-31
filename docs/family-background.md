@@ -7,10 +7,11 @@ Fields shown in the profile form:
 - Father's name and occupation, each up to 100 characters.
 - Mother's name and occupation, each up to 100 characters.
 - Religion, optional free text up to 100 characters; no religion is selected or inferred by default.
-- Number of siblings, a whole number from 0 to 50, or blank.
 - Additional family information, up to 1,000 characters.
 
 The authenticated student's `GET /api/v1/profile` returns a canonical `familyBackground` object with empty strings and `siblings: null` when no information has been saved. Existing accounts remain compatible. `PATCH /api/v1/profile` accepts a validated nested `familyBackground` object; partial nested updates retain omitted values. Empty strings and `siblings: null` clear the corresponding values.
+
+Legacy guardian and sibling values remain compatible in the private API, but those inputs are no longer shown in the form. Removing the inputs does not erase previously saved information.
 
 The account's existing session, student-role, origin and CSRF checks apply. The student's own account profile is the only interface for this data. Another student cannot read or edit it. Family information is excluded from public talent cards, public profiles, directory filters/search and the administrator's student list. Publishing a talent profile does not publish this section.
 

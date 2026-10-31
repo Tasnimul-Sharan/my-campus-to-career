@@ -251,3 +251,68 @@ test('DTO validation rejects unbounded, malformed, unknown and privacy-changing 
   assert.deepEqual(errors(TalentQueryDto, { page: '2', category: 'software-it', subject: ' CSE ', q: '' }), []);
   assert.deepEqual(errors(ProfileDto, { headline: '', talentCategory: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false }), []);
 });
+
+test('Public social links expose only bounded safe fixed and additional label/URL fields', () => {
+  const result = safePublicLinks({ github: ' https://github.com/example ', secret: 'never-public', additional: [
+    { label: ' Behance ', url: ' https://www.behance.net/example ', familyBackground: 'never-public', token: 'never-public' },
+    { label: '<strong>My channel</strong>', url: 'https://www.youtube.com/@example' },
+  ] });
+  assert.deepEqual(result, { github: 'https://github.com/example', additional: [
+    { label: 'Behance', url: 'https://www.behance.net/example' },
+    { label: '<strong>My channel</strong>', url: 'https://www.youtube.com/@example' },
+  ] });
+  assert.equal(JSON.stringify(result).includes('never-public'), false);
+  for (const item of [null, [], 'text', {}, { label: ' ', url: 'https://example.test' },
+    { label: 'x'.repeat(41), url: 'https://example.test' }, { label: 'Unsafe', url: 'javascript:alert(1)' },
+    { label: 'Unsafe', url: 'data:text/html,secret' }, { label: 'Unsafe', url: '//example.test' },
+    { label: 'Unsafe', url: 'https://user:secret@example.test' }, { label: 'Unsafe', url: 'https://example.test/\nsecret' },
+    { label: 'Unsafe', url: 'https://example.test/' + 'x'.repeat(500) }, { label: 'Unsafe', url: 8 },
+    { label: 8, url: 'https://example.test' }]) assert.deepEqual(safePublicLinks({ additional: [item] }), {});
+  for (const additional of [null, false, {}, 'text']) assert.deepEqual(safePublicLinks({ additional }), {});
+  const many = Array.from({ length: 10 }, (_, index) => ({ label: `Site ${index}`, url: `https://example.test/${index}` }));
+  assert.deepEqual(safePublicLinks({ additional: many }).additional, many.slice(0, 8));
+});
+
+test('Public detail shares optional numeric CGPA including zero and both scales, while legacy blanks remain optional', async () => {
+  const student = fixture({ cgpa: 0, cgpaScale: 4, familyBackground: { religion: 'private-family-value' }, educations: [
+    { institution: 'Example College', degree: 'HSC', field: 'Science', startYear: 2020, endYear: 2022, cgpa: 5, cgpaScale: 5 },
+    { institution: 'Example Academy', degree: 'Certificate', field: '', startYear: null, endYear: null },
+  ], socialLinks: { additional: [{ label: 'Behance', url: 'https://www.behance.net/example' }] } });
+  const db = database([student]), service = new TalentService(db);
+  const detail = await service.detail(student.userId);
+  assert.equal(detail.student.cgpa, 0); assert.equal(detail.student.cgpaScale, 4);
+  assert.equal(detail.student.educations[0].cgpa, 5); assert.equal(detail.student.educations[0].cgpaScale, 5);
+  assert.equal(detail.student.educations[1].cgpa, null); assert.equal(detail.student.educations[1].cgpaScale, 4);
+  assert.deepEqual(detail.student.socialLinks.additional, [{ label: 'Behance', url: 'https://www.behance.net/example' }]);
+  assert.equal(JSON.stringify(detail).includes('private-family-value'), false);
+  assert.equal(detail.student.familyBackground, undefined);
+  const projection = db.calls.find(([name]) => name === 'findFirst')[1].select;
+  assert.equal(projection.cgpa, true); assert.equal(projection.cgpaScale, true);
+  assert.equal(projection.educations.select.cgpa, true); assert.equal(projection.educations.select.cgpaScale, true);
+  db.rows[0].cgpa = null;
+  assert.equal((await service.detail(student.userId)).student.cgpa, null);
+  delete db.rows[0].cgpa; delete db.rows[0].cgpaScale;
+  const legacy = (await service.detail(student.userId)).student;
+  assert.equal(legacy.cgpa, null); assert.equal(legacy.cgpaScale, 4);
+  db.rows[0].cgpa = 4.75; db.rows[0].cgpaScale = 5;
+  assert.equal((await service.detail(student.userId)).student.cgpa, 4.75);
+  db.rows[0].cgpaScale = 4;
+  assert.equal((await service.detail(student.userId)).student.cgpa, null);
+});
+
+test('Grades and extra social links do not enter public cards, search fields or metadata filters', async () => {
+  const student = fixture({ cgpa: 3.75, cgpaScale: 4, socialLinks: { additional: [{ label: 'OnlyThisSocialLabel', url: 'https://example.test/social' }] } });
+  const db = database([student]), service = new TalentService(db);
+  const listing = await service.list({});
+  assert.equal(listing.students[0].cgpa, undefined); assert.equal(listing.students[0].cgpaScale, undefined);
+  assert.equal(listing.students[0].socialLinks, undefined);
+  assert.equal((await service.list({ q: 'OnlyThisSocialLabel' })).total, 0);
+  assert.equal((await service.list({ q: '3.75' })).total, 0);
+  const cardProjection = db.calls.find(([name]) => name === 'findMany')[1].select;
+  assert.equal(cardProjection.cgpa, undefined); assert.equal(cardProjection.cgpaScale, undefined);
+  const metadata = await service.meta();
+  assert.equal(JSON.stringify(metadata).includes('OnlyThisSocialLabel'), false);
+  assert.equal(metadata.cgpa, undefined); assert.equal(metadata.cgpaScale, undefined);
+  const search = JSON.stringify(talentSearchWhere({ q: 'optional grade' }));
+  assert.equal(search.includes('cgpa'), false); assert.equal(search.includes('socialLinks'), false);
+});

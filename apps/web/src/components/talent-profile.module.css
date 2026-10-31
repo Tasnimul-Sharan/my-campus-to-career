@@ -143,3 +143,9 @@
   .state h1 { font-size: 27px; }
   .footer { flex-wrap: wrap; justify-content: flex-start; align-content: center; gap: 7px 20px; min-height: 85px; font-size: 9px; }
 }
+
+.education .grade { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 8px; margin-top: 10px; border: 1px solid #dfe7d4; border-radius: 5px; background: #f0f4e8; color: #7d8e70; font-size: 10px; line-height: 1.6; }
+.grade strong { color: #4e704b; font-weight: 650; }
+.grade span { color: #7b8e6b; }
+.contactLinks a > svg { flex-shrink: 0; }
+.contactLabel { min-width: 0; overflow-wrap: anywhere; }

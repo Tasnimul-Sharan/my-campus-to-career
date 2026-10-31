@@ -56,7 +56,7 @@ export function CareerInterests({ profile, userId, emailVerified, savedDirectory
         <input id="directoryPublished" type="checkbox" checked={profile.directoryPublished} disabled={!emailVerified && !profile.directoryPublished} onChange={event => onChange('directoryPublished', event.target.checked)} aria-describedby="directory-public-information directory-privacy directory-visibility-help" />
         <span><strong>Publish my profile in the student talent directory</strong><span>Make my profile discoverable in the searchable homepage directory.</span></span>
       </label>
-      <p id="directory-public-information" className={styles.sharedInformation}>Visitors can see your name, photo, university, department, city, skills, career interests and headline. Your public profile also shares your career objective, academic qualifications, campus activities and any LinkedIn, GitHub or portfolio links you add.</p>
+      <p id="directory-public-information" className={styles.sharedInformation}>Visitors can see your name, photo, university, department, city, skills, career interests and headline. Your public profile also shares your career objective, academic qualifications and any CGPA you add, campus activities and the social or portfolio links you choose to include.</p>
       <p id="directory-privacy" className={styles.privacy}><ShieldCheck size={17} /><span>Your email address, phone number, family background and private PDFs are never included in the public directory.</span></p>
       <p id="directory-visibility-help" className={styles.saveHelp}>{visibilityChanged
         ? profile.directoryPublished ? 'Save your profile to publish these details.' : 'Your profile is still public. Save your profile to remove it from the directory.'

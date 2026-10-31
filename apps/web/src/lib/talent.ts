@@ -1,4 +1,4 @@
-import type { Education } from './api';
+import type { Education, SocialLinks } from './api';
 
 export const TALENT_CATEGORIES = [
   { slug: 'software-it', label: 'Software & IT' },
@@ -65,8 +65,10 @@ export type TalentDetail = {
     degree: string;
     semester: string;
     passingYear: number | null;
+    cgpa: number | null;
+    cgpaScale: 4 | 5;
     activities: string;
     educations: Education[];
-    socialLinks: { linkedin?: string; github?: string; portfolio?: string };
+    socialLinks: SocialLinks;
   };
 };

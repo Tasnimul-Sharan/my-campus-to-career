@@ -111,6 +111,8 @@ model StudentProfile {
   semester    String      @default("") @db.VarChar(30)
   degree      String      @default("") @db.VarChar(100)
   passingYear Int?
+  cgpa        Decimal?    @db.Decimal(4, 2)
+  cgpaScale   Int         @default(4)
   headline    String      @default("") @db.VarChar(120)
   talentCategory String   @default("") @db.VarChar(60)
   availability TalentAvailability @default(OPEN_TO_OPPORTUNITIES)
@@ -135,6 +137,8 @@ model Education {
   field       String         @default("") @db.VarChar(100)
   startYear   Int?
   endYear     Int?
+  cgpa        Decimal?       @db.Decimal(4, 2)
+  cgpaScale   Int            @default(4)
 
   @@index([profileId])
 }

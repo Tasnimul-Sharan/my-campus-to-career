@@ -87,7 +87,9 @@ Do not treat the planned modules as completed features. Their payment, seat-capa
 
 Students can choose a career category and publish their profile from **My profile → Career interests**. Employers browse the homepage directory and open public profiles with student-selected professional links. Existing accounts stay private until the student opts in; email, phone and private documents are excluded. See the [talent directory guide](docs/talent-directory.md).
 
-The optional **Family background** section saves parent/guardian information, siblings and a short note privately with the student's account. It is excluded from public talent profiles and does not affect profile completion. See the [family background guide](docs/family-background.md).
+The optional **Family background** section saves parent information, religion and a short note privately with the student's account. It is excluded from public talent profiles and does not affect profile completion. See the [family background guide](docs/family-background.md).
+
+Students can add optional CGPA and a grading scale to their education and qualifications, plus up to eight extra labeled social links. See the [education and social links guide](docs/profile-education-links.md).
 
 ## Verify changes
 
@@ -102,6 +104,7 @@ npm run test:documents
 npm run test:profile-pictures
 npm run test:talent
 npm run test:family
+npm run test:profile-enhancements
 npm run test:integration
 ```
 
