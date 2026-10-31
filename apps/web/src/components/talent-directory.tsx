@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, ArrowRight, ArrowUpRight, Calculator, ChevronLeft, ChevronRight, Code2, Compass, GraduationCap, LayoutGrid, MapPin, Paintbrush, PenLine, RefreshCw, Search, SlidersHorizontal, TrendingUp, UsersRound, Wrench, X } from 'lucide-react';
 import { api } from '@/lib/api';
-import { TALENT_CATEGORIES, TALENT_AVAILABILITIES, talentAvailabilityLabel, type TalentCard, type TalentMeta, type TalentListing } from '@/lib/talent';
+import { TALENT_CATEGORIES, TALENT_AVAILABILITIES, talentAvailabilityLabel, talentCategoriesForStudent, type TalentCard, type TalentMeta, type TalentListing } from '@/lib/talent';
 import styles from './talent-directory.module.css';
 
 const categoryIcons = { 'software-it': Code2, 'design-creative': Paintbrush, 'marketing-sales': TrendingUp, 'accounting-finance': Calculator, engineering: Wrench, 'content-communication': PenLine, exploring: Compass };
@@ -20,8 +20,9 @@ export function TalentAvatar({ student, large = false }: { student: Pick<TalentC
 }
 
 function StudentCard({ student }: { student: TalentCard }) {
+  const categories = talentCategoriesForStudent(student);
   return <article className={styles.card}><Link href={`/talent/${encodeURIComponent(student.id)}`} className={styles.cardLink}>
-    <div className={styles.cardTop}><TalentAvatar student={student} /><span className={styles.categoryTag}>{student.category.name}</span></div>
+    <div className={styles.cardTop}><TalentAvatar student={student} /><ul className={styles.categoryTags} aria-label={`${student.name}'s professional interests`}>{categories.map(category => <li className={styles.categoryTag} key={category.slug}>{category.name}</li>)}</ul></div>
     <h3>{student.name}</h3><p className={styles.headline}>{student.headline || 'Student exploring their next opportunity'}</p>
     <div className={styles.academics}><GraduationCap size={16} aria-hidden="true" /><div><span>{student.university}</span>{student.department && <small>{student.department}</small>}</div></div>
     {student.city && <p className={styles.city}><MapPin size={14} aria-hidden="true" />{student.city}</p>}

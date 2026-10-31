@@ -1,10 +1,10 @@
 # Student talent directory
 
-The homepage helps employers browse students by their preferred career area. Academic subject, university, skills, location and availability are separate filters. A student chooses one primary category, a short career headline and their availability in **My profile → Career interests**.
+The homepage helps employers browse students by their preferred career area. Academic subject, university, skills, location and availability are separate filters. A student chooses one to three primary career categories, a short career headline and their availability in **My profile → Career interests**.
 
 ## Publishing and contact
 
-Profiles are private by default, including accounts created before this feature. A verified, active student can publish their directory profile after adding a category, university, subject, career objective and at least one skill. Saving an incomplete profile privately remains supported. Students can unpublish from the same form.
+Profiles are private by default, including accounts created before this feature. A verified, active student can publish their directory profile after adding a category, university, subject, career objective and at least one skill. Saving other incomplete details privately remains supported after choosing at least one career category. Students can unpublish from the same form.
 
 Publishing shares the student's name, picture, chosen category and headline, skills, city, university and subject. The public detail page also includes the career objective, academic history and optional CGPA, campus activities and the LinkedIn, GitHub, portfolio and additional social links they choose to add. It does not share their account email, phone number, family background, private PDF documents or authentication data.
 
@@ -14,11 +14,13 @@ Unpublished, suspended, unverified and administrator accounts are excluded from 
 
 ## API
 
-- `GET /api/v1/talent/meta` returns category counts and bounded filter options derived from eligible published profiles.
+- `GET /api/v1/talent/meta` returns category counts and bounded filter options derived from eligible published profiles. A student is counted once in each selected category and once in the unique total; category counts must not be summed to calculate total students.
 - `GET /api/v1/talent` accepts `q`, `category`, `subject`, `university`, `city`, `skill`, `availability` and `page`. Results contain nine students per page and stable pagination. Filters combine with AND; keyword search examines public fields only.
 - `GET /api/v1/talent/:userId` returns a deliberately selected public profile, without account credentials or private contact fields.
 - `GET /api/v1/talent/:userId/picture` returns the eligible student's current processed WebP image, with `private, no-store` and `nosniff`. Unpublishing or removing the photo prevents new downloads.
 - Existing authenticated `PATCH /api/v1/profile` saves the additional career fields and the publishing preference with the other profile details. Origin, CSRF and session checks remain required.
+
+A category filter matches any category a student selected, including second and third choices. Cards and public detail return a bounded `categories` array; the legacy `category` property remains an alias for the first selection.
 
 Names, university and department values are student-entered. Keyword and academic filters help discovery; category membership is a self-selected career interest, not a claim that the platform has independently verified someone's qualifications.
 

@@ -21,7 +21,7 @@ const { validateSync } = require('class-validator');
 function fixture(overrides = {}) {
   const userId = randomUUID();
   const profile = { id: randomUUID(), userId, phone: '+880-private-phone', city: 'Dhaka', objective: 'Build accessible web products.',
-    headline: 'Frontend developer', talentCategory: 'software-it', availability: 'INTERNSHIP', directoryPublished: true,
+    headline: 'Frontend developer', talentCategory: 'software-it', talentCategories: [], availability: 'INTERNSHIP', directoryPublished: true,
     university: 'Example University', department: 'CSE', semester: '3', degree: 'BSc', passingYear: 2029,
     socialLinks: { github: 'https://github.com/example' }, activities: 'Coding club', updatedAt: new Date('2026-10-25T00:00:00Z'),
     skills: [{ name: 'TypeScript' }, { name: 'Communication' }], educations: [{ institution: 'Example College', degree: 'HSC', field: 'Science', startYear: 2020, endYear: 2022 }],
@@ -40,6 +40,9 @@ function matches(row, where = {}) {
     if (condition && typeof condition === 'object' && !(condition instanceof Date)) {
       if ('is' in condition) return matches(value, condition.is);
       if ('some' in condition) return Array.isArray(value) && value.some(item => matches(item, condition.some));
+      if ('has' in condition) return Array.isArray(value) && value.includes(condition.has);
+      if ('hasSome' in condition) return Array.isArray(value) && condition.hasSome.some(item => value.includes(item));
+      if ('isEmpty' in condition) return Array.isArray(value) && (value.length === 0) === condition.isEmpty;
       if ('not' in condition && value === condition.not) return false;
       if ('in' in condition && !condition.in.includes(value)) return false;
       if ('equals' in condition) return condition.mode === 'insensitive' ? String(value).toLowerCase() === condition.equals.toLowerCase() : value === condition.equals;
@@ -133,7 +136,7 @@ test('Public listing excludes every ineligible account and projects only public 
     fixture({ university: '' }), fixture({ department: '' }), fixture({ objective: '' }), fixture({ skills: [] })]);
   const result = await new TalentService(db).list({});
   assert.equal(result.total, 1); assert.equal(result.students[0].id, publicStudent.userId);
-  assert.deepEqual(Object.keys(result.students[0]).sort(), ['id', 'name', 'headline', 'category', 'university', 'department', 'city', 'skills', 'availability', 'objective', 'profilePictureUrl'].sort());
+  assert.deepEqual(Object.keys(result.students[0]).sort(), ['id', 'name', 'headline', 'category', 'categories', 'university', 'department', 'city', 'skills', 'availability', 'objective', 'profilePictureUrl'].sort());
   assert.equal(result.students[0].profilePictureUrl, null);
   const serialized = JSON.stringify(result);
   for (const secret of ['private-student@example.test', 'private-password-hash', 'private-phone', 'documents', 'socialLinks', 'educations', publicStudent.id]) assert.ok(!serialized.includes(secret));
@@ -223,7 +226,7 @@ test('Partial private drafts and explicit unpublishing remain available; publish
   db.rows[0] = fixture({ userId: row.userId, directoryPublished: true, user: { id: row.userId } });
   await assert.rejects(service.update(row.userId, { university: '' }), error => error.getStatus() === 400);
   db.rows[0].user.emailVerifiedAt = null;
-  const privateAgain = await service.update(row.userId, { directoryPublished: false, university: '', skills: [], talentCategory: '' });
+  const privateAgain = await service.update(row.userId, { directoryPublished: false, university: '', skills: [] });
   assert.equal(privateAgain.directoryPublished, false); assert.equal(privateAgain.university, '');
 });
 
@@ -247,9 +250,9 @@ test('Transformed partial DTOs preserve existing publication and completeness re
 test('DTO validation rejects unbounded, malformed, unknown and privacy-changing input', () => {
   const errors = (Dto, data) => validateSync(plainToInstance(Dto, data), { whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true });
   for (const data of [{ page: 0 }, { page: 1.5 }, { page: 10001 }, { q: 'x'.repeat(101) }, { category: 'any-role' }, { availability: 'UNKNOWN' }, { pageSize: 1000 }, { email: 'private@example.test' }, { city: ['Dhaka'] }]) assert.ok(errors(TalentQueryDto, data).length);
-  for (const data of [{ headline: 'x'.repeat(121) }, { talentCategory: null }, { availability: null }, { directoryPublished: 'true' }, { userId: randomUUID() }, { directoryPublished: null }]) assert.ok(errors(ProfileDto, data).length);
+  for (const data of [{ headline: 'x'.repeat(121) }, { talentCategory: null }, { availability: null }, { directoryPublished: 'true' }, { userId: randomUUID() }, { directoryPublished: null }, { talentCategory: '' }]) assert.ok(errors(ProfileDto, data).length);
   assert.deepEqual(errors(TalentQueryDto, { page: '2', category: 'software-it', subject: ' CSE ', q: '' }), []);
-  assert.deepEqual(errors(ProfileDto, { headline: '', talentCategory: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false }), []);
+  assert.deepEqual(errors(ProfileDto, { headline: '', talentCategories: ['software-it'], availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false }), []);
 });
 
 test('Public social links expose only bounded safe fixed and additional label/URL fields', () => {
@@ -315,4 +318,52 @@ test('Grades and extra social links do not enter public cards, search fields or 
   assert.equal(metadata.cgpa, undefined); assert.equal(metadata.cgpaScale, undefined);
   const search = JSON.stringify(talentSearchWhere({ q: 'optional grade' }));
   assert.equal(search.includes('cgpa'), false); assert.equal(search.includes('socialLinks'), false);
+});
+
+test('Any selected category finds a student once, and metadata counts unique students separately from category memberships', async () => {
+  const dual = fixture({ talentCategories: ['software-it', 'design-creative'] });
+  const triple = fixture({ talentCategory: 'engineering', talentCategories: ['engineering', 'marketing-sales', 'content-communication'] });
+  const legacy = fixture({ talentCategory: 'accounting-finance', talentCategories: [] });
+  const db = database([dual, triple, legacy,
+    fixture({ directoryPublished: false, talentCategories: ['design-creative', 'engineering'] }),
+    fixture({ user: { status: 'SUSPENDED' }, talentCategories: ['design-creative', 'engineering'] }),
+    fixture({ talentCategories: ['unsupported'], talentCategory: 'software-it' }),
+  ]);
+  const service = new TalentService(db);
+  const all = await service.list({});
+  assert.equal(all.total, 3); assert.equal(new Set(all.students.map(student => student.id)).size, 3);
+  assert.equal((await service.list({ category: 'design-creative' })).students[0].id, dual.userId);
+  assert.equal((await service.list({ category: 'marketing-sales' })).students[0].id, triple.userId);
+  assert.equal((await service.list({ category: 'content-communication' })).students[0].id, triple.userId);
+  assert.equal((await service.list({ category: 'accounting-finance' })).students[0].id, legacy.userId);
+  assert.equal((await service.list({ category: 'content-communication' })).total, 1);
+  const metadata = await service.meta();
+  assert.equal(metadata.totalStudents, 3);
+  const counts = Object.fromEntries(metadata.categories.map(category => [category.slug, category.count]));
+  assert.deepEqual(counts, { 'software-it': 1, 'design-creative': 1, 'marketing-sales': 1, 'accounting-finance': 1, engineering: 1, 'content-communication': 1, exploring: 0 });
+  assert.equal(metadata.categories.reduce((sum, category) => sum + category.count, 0), 6);
+  const detail = (await service.detail(triple.userId)).student;
+  assert.deepEqual(detail.categories.map(category => category.slug), ['engineering', 'marketing-sales', 'content-communication']);
+  assert.deepEqual(detail.category, detail.categories[0]);
+  assert.deepEqual((await service.detail(legacy.userId)).student.categories, [{ slug: 'accounting-finance', name: 'Accounting & Finance' }]);
+  const countsBefore = db.calls.filter(([name]) => name === 'count').length;
+  await service.meta();
+  assert.equal(db.calls.filter(([name]) => name === 'count').length - countsBefore, 8);
+});
+
+test('Public categories are bounded known unique labels and nonempty arrays remain authoritative over stale legacy aliases', async () => {
+  const student = fixture({ talentCategory: 'accounting-finance', talentCategories: ['design-creative', 'private-family-value', 'design-creative', 'software-it', 'engineering', 'exploring'], familyBackground: { religion: 'private-family-value' } });
+  const db = database([student]), service = new TalentService(db);
+  const listing = await service.list({});
+  assert.deepEqual(listing.students[0].categories, [
+    { slug: 'design-creative', name: 'Design & Creative' },
+    { slug: 'software-it', name: 'Software & IT' },
+    { slug: 'engineering', name: 'Engineering' },
+  ]);
+  assert.deepEqual(listing.students[0].category, listing.students[0].categories[0]);
+  assert.equal(JSON.stringify(listing).includes('private-family-value'), false);
+  assert.equal((await service.list({ category: 'accounting-finance' })).total, 0);
+  db.rows[0].talentCategories = ['unsupported'];
+  assert.equal((await service.list({})).total, 0);
+  await assert.rejects(service.detail(student.userId), error => error.getStatus() === 404);
 });

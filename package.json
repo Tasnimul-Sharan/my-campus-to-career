@@ -26,6 +26,7 @@
     "test:talent": "npm run test:talent --workspace=@campus/api",
     "test:family": "npm run test:family --workspace=@campus/api",
     "test:profile-enhancements": "npm run test:profile-enhancements --workspace=@campus/api",
+    "test:career-categories": "npm run test:career-categories --workspace=@campus/api",
     "test:gmail-auth": "node --test scripts/tests/gmail-oauth.test.mjs",
     "gmail:authorize": "node scripts/gmail-authorize.mjs",
     "test:integration": "node scripts/test-integration.mjs",

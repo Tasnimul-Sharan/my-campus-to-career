@@ -115,6 +115,7 @@ model StudentProfile {
   cgpaScale   Int         @default(4)
   headline    String      @default("") @db.VarChar(120)
   talentCategory String   @default("") @db.VarChar(60)
+  talentCategories String[] @default([])
   availability TalentAvailability @default(OPEN_TO_OPPORTUNITIES)
   directoryPublished Boolean @default(false)
   socialLinks Json        @default("{}")
@@ -125,6 +126,7 @@ model StudentProfile {
   updatedAt   DateTime    @updatedAt
 
   @@index([directoryPublished, talentCategory])
+  @@index([talentCategories], type: Gin)
   @@index([directoryPublished, updatedAt])
 }
 

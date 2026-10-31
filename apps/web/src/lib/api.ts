@@ -50,7 +50,7 @@ export type FamilyBackground = {
 export type Profile = {
   phone: string; city: string; objective: string; university: string; department: string; semester: string; degree: string; passingYear: number | null; cgpa: number | null; cgpaScale: 4 | 5;
   skills: string[]; socialLinks: SocialLinks; activities: string; educations: Education[];
-  talentCategory: '' | import('./talent').TalentCategory; headline: string; availability: import('./talent').TalentAvailability; directoryPublished: boolean;
+  talentCategory: '' | import('./talent').TalentCategory; talentCategories: import('./talent').TalentCategory[]; headline: string; availability: import('./talent').TalentAvailability; directoryPublished: boolean;
   familyBackground: FamilyBackground;
 };
-export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, cgpa: null, cgpaScale: 4, skills: [], socialLinks: { additional: [] }, activities: '', educations: [], talentCategory: '', headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' } };
+export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, cgpa: null, cgpaScale: 4, skills: [], socialLinks: { additional: [] }, activities: '', educations: [], talentCategory: '', talentCategories: [], headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' } };

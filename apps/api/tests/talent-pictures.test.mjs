@@ -34,7 +34,9 @@ test('a public picture requires an opted-in, verified, active student both befor
     assert.equal(where.id, id); assert.equal(where.role, 'STUDENT'); assert.equal(where.status, 'ACTIVE');
     assert.deepEqual(where.emailVerifiedAt, { not: null });
     assert.equal(where.profile.is.directoryPublished, true);
-    assert.equal(where.profile.is.talentCategory.in.length, 7);
+    assert.equal(where.profile.is.OR[0].talentCategories.hasSome.length, 7);
+    assert.deepEqual(where.profile.is.OR[1].talentCategories, { isEmpty: true });
+    assert.equal(where.profile.is.OR[1].talentCategory.in.length, 7);
     assert.deepEqual(where.profile.is.skills, { some: {} });
   }
   assert.equal(calls[1].where.profilePictureId, pictureId);

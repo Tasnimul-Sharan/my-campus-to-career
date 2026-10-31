@@ -3,17 +3,25 @@ import { Prisma } from '@prisma/client';
 import { Database } from './database';
 import { TalentQueryDto } from './dto';
 import { config } from './config';
-import { normalizeSocialLinks } from './profile';
+import { normalizeSocialLinks, normalizeTalentCategories } from './profile';
 import { TALENT_AVAILABILITIES, TALENT_CATEGORIES, TALENT_CATEGORY_SLUGS } from './talent-categories';
 
 export const TALENT_PAGE_SIZE = 9;
 const FILTER_OPTION_LIMIT = 100;
 
+/** Match any selected category, with a legacy fallback only for empty arrays. */
+export function publicTalentCategoryWhere(category?: string): Prisma.StudentProfileWhereInput {
+  return { OR: [
+    { talentCategories: category ? { has: category } : { hasSome: [...TALENT_CATEGORY_SLUGS] } },
+    { talentCategories: { isEmpty: true }, talentCategory: category ?? { in: [...TALENT_CATEGORY_SLUGS] } },
+  ] };
+}
+
 /** Reuse this eligibility rule for every public view, facet and public avatar. */
 export function publicTalentWhere(): Prisma.StudentProfileWhereInput {
   return {
     directoryPublished: true,
-    talentCategory: { in: [...TALENT_CATEGORY_SLUGS] },
+    ...publicTalentCategoryWhere(),
     university: { not: '' }, department: { not: '' }, objective: { not: '' }, skills: { some: {} },
     user: { is: { role: 'STUDENT', status: 'ACTIVE', emailVerifiedAt: { not: null } } },
   };
@@ -24,7 +32,7 @@ const literalSearch = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 export function talentSearchWhere(query: TalentQueryDto): Prisma.StudentProfileWhereInput {
   const and: Prisma.StudentProfileWhereInput[] = [publicTalentWhere()];
-  if (query.category) and.push({ talentCategory: query.category });
+  if (query.category) and.push(publicTalentCategoryWhere(query.category));
   if (query.subject) and.push({ department: { equals: query.subject, mode: 'insensitive' } });
   if (query.university) and.push({ university: { equals: query.university, mode: 'insensitive' } });
   if (query.city) and.push({ city: { equals: query.city, mode: 'insensitive' } });
@@ -42,7 +50,7 @@ export function talentSearchWhere(query: TalentQueryDto): Prisma.StudentProfileW
 }
 
 const cardSelect = {
-  headline: true, talentCategory: true, university: true, department: true, city: true,
+  headline: true, talentCategory: true, talentCategories: true, university: true, department: true, city: true,
   availability: true, objective: true,
   skills: { select: { name: true }, orderBy: { name: 'asc' }, take: 20 },
   user: { select: { id: true, name: true, profilePictureId: true,
@@ -74,12 +82,16 @@ function publicGrade(value: Prisma.Decimal | null | undefined, scale: number | u
 }
 
 function publicCard(profile: PublicCardProfile) {
-  const category = TALENT_CATEGORIES.find(item => item.slug === profile.talentCategory)!;
+  const categories = normalizeTalentCategories(profile.talentCategories, profile.talentCategory).flatMap(slug => {
+    const category = TALENT_CATEGORIES.find(item => item.slug === slug);
+    return category ? [{ slug: category.slug, name: category.name }] : [];
+  });
+  const category = categories[0]!;
   const picture = profile.user.profilePicture;
   const hasPicture = !!config.documents && picture?.status === 'READY' && picture.id === profile.user.profilePictureId && picture.userId === profile.user.id;
   return {
     id: profile.user.id, name: profile.user.name, headline: profile.headline,
-    category: { slug: category.slug, name: category.name }, university: profile.university,
+    category: { slug: category.slug, name: category.name }, categories, university: profile.university,
     department: profile.department, city: profile.city, skills: profile.skills.map(skill => skill.name),
     availability: profile.availability,
     objective: profile.objective.length > 180 ? `${profile.objective.slice(0, 177)}...` : profile.objective,
@@ -110,20 +122,20 @@ export class TalentService {
   constructor(private readonly db: Database) {}
   async meta() {
     const where = publicTalentWhere();
-    const [groups, subjects, universities, cities, skills] = await Promise.all([
-      this.db.studentProfile.groupBy({ by: ['talentCategory'], where, _count: { _all: true } }),
+    const [counts, totalStudents, subjects, universities, cities, skills] = await Promise.all([
+      Promise.all(TALENT_CATEGORIES.map(category => this.db.studentProfile.count({ where: { AND: [where, publicTalentCategoryWhere(category.slug)] } }))),
+      this.db.studentProfile.count({ where }),
       this.db.studentProfile.findMany({ where, select: { department: true }, distinct: ['department'], orderBy: { department: 'asc' }, take: FILTER_OPTION_LIMIT }),
       this.db.studentProfile.findMany({ where, select: { university: true }, distinct: ['university'], orderBy: { university: 'asc' }, take: FILTER_OPTION_LIMIT }),
       this.db.studentProfile.findMany({ where: { AND: [where, { city: { not: '' } }] }, select: { city: true }, distinct: ['city'], orderBy: { city: 'asc' }, take: FILTER_OPTION_LIMIT }),
       this.db.skill.findMany({ where: { profile: { is: where } }, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' }, take: FILTER_OPTION_LIMIT }),
     ]);
-    const counts = new Map(groups.map(group => [group.talentCategory, group._count._all]));
     return {
-      categories: TALENT_CATEGORIES.map(category => ({ ...category, count: counts.get(category.slug) || 0 })),
+      categories: TALENT_CATEGORIES.map((category, index) => ({ ...category, count: counts[index] })),
       subjects: stableOptions(subjects.map(row => row.department)),
       universities: stableOptions(universities.map(row => row.university)),
       cities: stableOptions(cities.map(row => row.city)), skills: stableOptions(skills.map(row => row.name)),
-      availabilities: TALENT_AVAILABILITIES, totalStudents: groups.reduce((sum, group) => sum + group._count._all, 0),
+      availabilities: TALENT_AVAILABILITIES, totalStudents,
     };
   }
   async list(query: TalentQueryDto) {

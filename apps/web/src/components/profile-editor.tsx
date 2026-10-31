@@ -66,11 +66,9 @@ function normalize(profile: Partial<Profile>): Profile {
   ] as const)
     result.familyBackground[key] = result.familyBackground[key] || "";
   result.familyBackground.siblings ??= null;
-  result.talentCategory = TALENT_CATEGORIES.some(
-    (category) => category.slug === profile.talentCategory,
-  )
-    ? profile.talentCategory!
-    : "";
+  const knownCategories = Array.isArray(profile.talentCategories) ? [...new Set(profile.talentCategories.filter(value => TALENT_CATEGORIES.some(category => category.slug === value)))].slice(0, 3) : [];
+  result.talentCategories = knownCategories.length ? knownCategories : TALENT_CATEGORIES.some(category => category.slug === profile.talentCategory) ? [profile.talentCategory as Profile["talentCategories"][number]] : [];
+  result.talentCategory = result.talentCategories[0] || "";
   result.availability = TALENT_AVAILABILITIES.some(
     (availability) => availability.value === profile.availability,
   )
@@ -134,7 +132,9 @@ export function ProfileEditor() {
   }, [userId, reload]);
   function change<K extends keyof Profile>(key: K, value: Profile[K]) {
     editVersion.current++;
-    setProfile((current) => ({ ...current, [key]: value }));
+    setProfile((current) => key === "talentCategories"
+      ? { ...current, talentCategories: value as Profile["talentCategories"], talentCategory: (value as Profile["talentCategories"])[0] || "" }
+      : { ...current, [key]: value });
     setSuccess("");
   }
   function addSkill() {
@@ -193,6 +193,11 @@ export function ProfileEditor() {
         return;
       }
       next = { ...profile, skills: [...profile.skills, skill.trim()] };
+    }
+    if (next.talentCategories.length < 1 || next.talentCategories.length > 3) {
+      setError("Choose at least one and no more than three primary career categories before saving your profile.");
+      setSaving(false);
+      return;
     }
     const invalidEducation = next.educations.some(
       (e) => e.startYear && e.endYear && e.startYear > e.endYear,

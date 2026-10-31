@@ -20,6 +20,7 @@
     "test:talent": "npm run build && node --test tests/talent.test.mjs tests/talent-pictures.test.mjs",
     "test:family": "npm run build && node --test tests/family-background.test.mjs",
     "test:profile-enhancements": "npm run build && node --test tests/profile-enhancements.test.mjs",
+    "test:career-categories": "npm run build && node --test tests/career-categories.test.mjs",
     "test:integration": "node --test tests/integration.test.mjs"
   },
   "dependencies": {

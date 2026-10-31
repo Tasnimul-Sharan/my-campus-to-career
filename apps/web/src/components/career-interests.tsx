@@ -16,7 +16,7 @@ export function publicationRequirements(profile: Profile, emailVerified: boolean
     ...(!profile.department.trim() ? [{ label: 'Add your department or subject.', href: '#department' }] : []),
     ...(!profile.objective.trim() ? [{ label: 'Write a career objective.', href: '#objective' }] : []),
     ...(!profile.skills.some(value => value.trim()) ? [{ label: 'Add at least one skill.', href: '#skill' }] : []),
-    ...(!profile.talentCategory ? [{ label: 'Choose a primary career category.', href: '#talentCategory' }] : []),
+    ...(!profile.talentCategories.length || profile.talentCategories.length > 3 ? [{ label: 'Choose one to three primary career categories.', href: '#talentCategories' }] : []),
   ];
 }
 
@@ -29,16 +29,26 @@ export function CareerInterests({ profile, userId, emailVerified, savedDirectory
 }) {
   const requirements = publicationRequirements(profile, emailVerified);
   const visibilityChanged = profile.directoryPublished !== savedDirectoryPublished;
+  const selectedCategories = profile.talentCategories;
 
   return <section className="panel form-section" id="career-interests" aria-labelledby="career-interests-heading">
     <div className="form-section-heading"><span className="section-icon"><BriefcaseBusiness size={22} /></span><div><h2 id="career-interests-heading">Career interests</h2><p>Choose your direction and how you would like to be discovered.</p></div><span className="section-index">06</span></div>
     <div className="form-grid">
-      <Field id="talentCategory" label="Primary career category" help="Choose the work that interests you. Your academic subject does not limit this choice.">
-        <select className={styles.select} id="talentCategory" value={profile.talentCategory} onChange={event => onChange('talentCategory', event.target.value as Profile['talentCategory'])}>
-          <option value="">Choose a career category</option>
-          {TALENT_CATEGORIES.map(category => <option key={category.slug} value={category.slug}>{category.label}</option>)}
-        </select>
-      </Field>
+      <fieldset className={styles.categoryFieldset} id="talentCategories" aria-describedby="career-category-help career-category-count">
+        <legend>Primary career categories</legend>
+        <p id="career-category-help" className={styles.categoryHelp}>Select at least 1 and up to 3 career categories. Your academic subject does not limit your choices.</p>
+        <div className={styles.categoryChoices}>
+          {TALENT_CATEGORIES.map(category => {
+            const selected = selectedCategories.includes(category.slug);
+            return <label className={`${styles.categoryOption} ${selected ? styles.categorySelected : ''}`} htmlFor={`career-category-${category.slug}`} key={category.slug}>
+              <input id={`career-category-${category.slug}`} type="checkbox" checked={selected} disabled={!selected && selectedCategories.length >= 3}
+                onChange={event => onChange('talentCategories', event.target.checked ? [...selectedCategories, category.slug] : selectedCategories.filter(value => value !== category.slug))} />
+              <span>{category.label}</span>
+            </label>;
+          })}
+        </div>
+        <p id="career-category-count" className={styles.categoryCount} role="status" aria-live="polite" aria-atomic="true">{selectedCategories.length.toLocaleString('en-GB')} of 3 selected{selectedCategories.length >= 3 ? ' · Remove a selection to choose another.' : ''}</p>
+      </fieldset>
       <Field id="availability" label="Open to" help="Let visitors know what kind of opportunity you are interested in.">
         <select className={styles.select} id="availability" value={profile.availability} onChange={event => onChange('availability', event.target.value as TalentAvailability)}>
           {TALENT_AVAILABILITIES.map(availability => <option key={availability.value} value={availability.value}>{availability.label}</option>)}
@@ -62,7 +72,7 @@ export function CareerInterests({ profile, userId, emailVerified, savedDirectory
         ? profile.directoryPublished ? 'Save your profile to publish these details.' : 'Your profile is still public. Save your profile to remove it from the directory.'
         : 'You can unpublish at any time by turning this off and saving your profile.'}</p>
 
-      {requirements.length > 0 ? <div className={styles.readiness}><strong>Before you publish</strong><ul>{requirements.map(requirement => <li key={requirement.label}>{requirement.href ? <a href={requirement.href}>{requirement.label}<ArrowUpRight size={12} /></a> : requirement.label}</li>)}</ul><p>You can save an unfinished profile privately.</p></div>
+      {requirements.length > 0 ? <div className={styles.readiness}><strong>Before you publish</strong><ul>{requirements.map(requirement => <li key={requirement.label}>{requirement.href ? <a href={requirement.href}>{requirement.label}<ArrowUpRight size={12} /></a> : requirement.label}</li>)}</ul><p>Choose at least one career category to save a private draft. Other details can be completed later.</p></div>
         : <p className={styles.ready}><Check size={16} />Your profile meets the requirements for publishing.</p>}
       {savedDirectoryPublished && <Link className={styles.preview} href={`/talent/${encodeURIComponent(userId)}`} target="_blank" rel="noopener noreferrer" prefetch={false}>View my saved public profile<ArrowUpRight size={15} /><span className="sr-only"> (opens in a new tab)</span></Link>}
     </div>

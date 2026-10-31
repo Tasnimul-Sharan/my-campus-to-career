@@ -167,3 +167,6 @@
   .directoryNote svg { margin-top: 2px; }
 }
 @media (prefers-reduced-motion: reduce) { .skeleton > span, .skeleton i, .skeleton b { animation: none; } }
+
+.categoryTags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 5px; list-style: none; padding: 0; margin: 0; }
+.categoryTags .categoryTag { min-width: 0; max-width: 100%; overflow-wrap: anywhere; text-align: center; }

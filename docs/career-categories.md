@@ -1,0 +1,11 @@
+# Multiple career categories
+
+**My profile → Career interests → Primary career categories** lets students select at least one and at most three different career areas. The checkbox group shows the selection count. After three selections, only unselected options are disabled; students can remove a choice to select another. Saving a profile requires one to three categories, including a private draft. Registration can still create an empty draft before its first save.
+
+The authenticated profile accepts and returns `talentCategories: string[]`. Only known category slugs are allowed. Empty arrays, more than three entries, duplicates, null values and unknown categories are rejected when supplied. Omitted category fields retain the current choices. For older clients, a supplied nonempty `talentCategory` is treated as a single selection. Responses retain this scalar as an alias for the first category. An explicit empty legacy scalar is no longer accepted. When both fields are valid and provided, the array controls the selection.
+
+Published students appear under any of their chosen categories. Cards and public details display all selected categories. Category counts count each eligible student once per chosen category, while `totalStudents` counts each student once overall. Academic filters, eligibility, stable pagination and private-data boundaries stay the same.
+
+The additive `20261031010000_multiple_career_categories` migration adds a `TEXT[]` profile column, backfills an existing primary category as a one-element array, and adds a GIN index plus bounds, allowed-value and uniqueness checks. Empty arrays are permitted in the database for new, unsaved accounts. Existing category choices and publication settings are retained. The earlier CGPA migration must precede it in this feature bundle.
+
+Verify array validation, legacy fallback, partial preservation, save/reload, first/second/third-category filters, unique totals and public/private output using the focused career-category, talent, family and profile-enhancement checks. Browser tests should also cover the three-selection limit, removing a choice, minimum-one save validation and mobile layout. Use only synthetic students in a dedicated local database.

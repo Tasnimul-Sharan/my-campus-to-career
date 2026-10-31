@@ -85,7 +85,7 @@ docs/        Architecture and acceptance checks
 
 Do not treat the planned modules as completed features. Their payment, seat-capacity and application rules will be implemented and tested in their respective phases. Follow the [Cloudinary document guide](docs/cloudinary-documents.md) before enabling PDF uploads in a deployment.
 
-Students can choose a career category and publish their profile from **My profile → Career interests**. Employers browse the homepage directory and open public profiles with student-selected professional links. Existing accounts stay private until the student opts in; email, phone and private documents are excluded. See the [talent directory guide](docs/talent-directory.md).
+Students can choose one to three career categories and publish their profile from **My profile → Career interests**. Employers browse the homepage directory and open public profiles with student-selected professional links. Existing accounts stay private until the student opts in; email, phone and private documents are excluded. See the [talent directory guide](docs/talent-directory.md) and [multiple career categories guide](docs/career-categories.md).
 
 The optional **Family background** section saves parent information, religion and a short note privately with the student's account. It is excluded from public talent profiles and does not affect profile completion. See the [family background guide](docs/family-background.md).
 
@@ -105,6 +105,7 @@ npm run test:profile-pictures
 npm run test:talent
 npm run test:family
 npm run test:profile-enhancements
+npm run test:career-categories
 npm run test:integration
 ```
 

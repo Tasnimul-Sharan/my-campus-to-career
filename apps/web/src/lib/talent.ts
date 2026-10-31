@@ -28,11 +28,14 @@ export function talentAvailabilityLabel(availability: string | null | undefined)
   return TALENT_AVAILABILITIES.find(option => option.value === availability)?.label || 'Open to opportunities';
 }
 
+export type PublicTalentCategory = { slug: TalentCategory; name: string };
+
 export type TalentCard = {
   id: string;
   name: string;
   headline: string;
-  category: { slug: TalentCategory; name: string };
+  category: PublicTalentCategory;
+  categories: PublicTalentCategory[];
   university: string;
   department: string;
   city: string;
@@ -41,6 +44,17 @@ export type TalentCard = {
   objective: string;
   profilePictureUrl: string | null;
 };
+
+export function talentCategoriesForStudent(student: { category?: PublicTalentCategory; categories?: PublicTalentCategory[] }): PublicTalentCategory[] {
+  const source = Array.isArray(student.categories) && student.categories.length ? student.categories : student.category ? [student.category] : [];
+  const seen = new Set<string>();
+  return source.slice(0, 3).flatMap(value => {
+    const known = value && TALENT_CATEGORIES.find(category => category.slug === value.slug);
+    if (!known || seen.has(known.slug)) return [];
+    seen.add(known.slug);
+    return [{ slug: known.slug, name: known.label }];
+  });
+}
 
 export type TalentMeta = {
   categories: { slug: TalentCategory; name: string; description: string; count: number }[];

@@ -28,3 +28,17 @@
 .preview { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; color: var(--teal); font-size: 11px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 @media (max-width: 760px) { .select { min-height: 47px; font-size: 13px; }.directory { padding: 18px; }.directoryHeading h3 { font-size: 14px; } }
 @media (max-width: 450px) { .directory { padding: 16px; }.directoryHeading { align-items: flex-start; }.directoryHeading > div { align-items: flex-start; gap: 7px; }.directoryIcon { margin-top: 2px; }.directoryHeading h3 { font-size: 13px; }.visibility { padding: 3px 7px; font-size: 9px; }.checkbox { padding: 12px; gap: 9px; }.intro { font-size: 11px; } }
+.categoryFieldset { grid-column: 1 / -1; min-width: 0; margin: 0; padding: 0; border: 0; }
+.categoryFieldset legend { padding: 0; font-size: 13px; font-weight: 600; color: #385249; }
+.categoryHelp { margin: 8px 0 14px; color: #7b8b71; font-size: 11px; line-height: 1.8; }
+.categoryChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.categoryOption { display: flex; align-items: center; gap: 10px; min-height: 53px; padding: 12px 14px; border: 1px solid #dce3d4; border-radius: 8px; background: #fdfef9; color: #4b6552; font-size: 12px; font-weight: 500; cursor: pointer; }
+.categoryOption input { flex: 0 0 17px; width: 17px; height: 17px; min-height: 17px; padding: 0; margin: 0; accent-color: var(--teal); cursor: pointer; }
+.categoryOption input:focus-visible { outline: 3px solid var(--orange); outline-offset: 4px; }
+.categoryOption:hover { background: #f2f6eb; border-color: #a7bb9b; }
+.categorySelected { color: #315c3b; border-color: #a5bfa0; background: #eaf2e3; }
+.categoryOption:has(input:disabled) { opacity: .5; cursor: not-allowed; }
+.categoryOption:has(input:disabled):hover { background: #fdfef9; border-color: #dce3d4; }
+.categoryOption input:disabled { cursor: not-allowed; }
+.categoryCount { margin-top: 12px; color: #647d57; font-size: 11px; line-height: 1.7; }
+@media (max-width: 450px) { .categoryChoices { grid-template-columns: 1fr; gap: 9px; }.categoryFieldset legend { font-size: 12px; }.categoryHelp, .categoryCount { font-size: 10px; }.categoryOption { min-height: 47px; padding: 11px 12px; font-size: 11px; } }

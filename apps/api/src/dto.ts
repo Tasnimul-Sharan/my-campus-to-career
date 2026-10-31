@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
 import { TalentAvailability, UserStatus } from '@prisma/client';
 import { TALENT_CATEGORY_SLUGS } from './talent-categories';
 
@@ -59,7 +59,8 @@ export class FamilyBackgroundDto {
 export class ProfileDto {
   @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => FamilyBackgroundDto) familyBackground?: FamilyBackgroundDto;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(120) headline?: string;
-  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(['', ...TALENT_CATEGORY_SLUGS]) talentCategory?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(TALENT_CATEGORY_SLUGS) talentCategory?: string;
+  @ValidateIf((_, v) => v !== undefined) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(3) @ArrayUnique() @IsIn(TALENT_CATEGORY_SLUGS, { each: true }) talentCategories?: string[];
   @ValidateIf((_, v) => v !== undefined) @IsEnum(TalentAvailability) availability?: TalentAvailability;
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() directoryPublished?: boolean;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(30) phone?: string;

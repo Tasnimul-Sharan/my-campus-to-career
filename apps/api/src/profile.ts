@@ -76,11 +76,27 @@ function assertCgpa(cgpa: unknown, scale: number, label: string) {
   }
 }
 
+function isTalentCategory(value: unknown): value is typeof TALENT_CATEGORY_SLUGS[number] {
+  return TALENT_CATEGORY_SLUGS.some(slug => slug === value);
+}
+
+export function normalizeTalentCategories(value: unknown, legacy?: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0) return isTalentCategory(legacy) ? [legacy] : [];
+  return [...new Set(value.filter(isTalentCategory))].slice(0, 3);
+}
+
+function assertTalentCategories(value: unknown): asserts value is string[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 3 || new Set(value).size !== value.length || !value.every(isTalentCategory)) {
+    throw new BadRequestException('Choose between 1 and 3 different career categories.');
+  }
+}
+
 function serialize(profile: FullProfile) {
+  const talentCategories = normalizeTalentCategories(profile.talentCategories, profile.talentCategory);
   return { phone: profile.phone, city: profile.city, objective: profile.objective, university: profile.university,
     department: profile.department, semester: profile.semester, degree: profile.degree, passingYear: profile.passingYear,
     cgpa: profile.cgpa == null ? null : Number(profile.cgpa), cgpaScale: profile.cgpaScale ?? 4,
-    headline: profile.headline, talentCategory: profile.talentCategory, availability: profile.availability, directoryPublished: profile.directoryPublished,
+    headline: profile.headline, talentCategory: talentCategories[0] ?? '', talentCategories, availability: profile.availability, directoryPublished: profile.directoryPublished,
     socialLinks: normalizeSocialLinks(profile.socialLinks), familyBackground: normalizeFamilyBackground(profile.familyBackground),
     activities: profile.activities, skills: profile.skills.map(skill => skill.name),
     educations: profile.educations.map(({ institution, degree, field, startYear, endYear, cgpa, cgpaScale }) => ({ institution, degree, field, startYear, endYear, cgpa: cgpa == null ? null : Number(cgpa), cgpaScale: cgpaScale ?? 4 })) };
@@ -94,7 +110,9 @@ export class ProfileService {
   }
   async update(userId: string, dto: ProfileDto) {
     if (dto.educations?.some(e => e.startYear && e.endYear && e.endYear < e.startYear)) throw new BadRequestException('Education end year must not be earlier than its start year.');
-    const { skills, educations, socialLinks, familyBackground, ...fields } = dto;
+    const { skills, educations, socialLinks, familyBackground, talentCategory, talentCategories, ...fields } = dto;
+    if (talentCategories !== undefined) assertTalentCategories(talentCategories);
+    if (talentCategory !== undefined && !isTalentCategory(talentCategory)) throw new BadRequestException('Choose a valid career category.');
     for (const entry of educations ?? []) assertCgpa(entry.cgpa, entry.cgpaScale ?? 4, 'Qualification');
     // Transformed DTOs contain declared optional properties with undefined values.
     // They must not erase current values while checking a partial update.
@@ -105,6 +123,9 @@ export class ProfileService {
       await tx.$queryRaw`SELECT "id" FROM "StudentProfile" WHERE "userId" = ${userId}::uuid FOR UPDATE`;
       const current = await tx.studentProfile.findUnique({ where: { userId }, include: { ...profileInclude, user: { select: { role: true, status: true, emailVerifiedAt: true } } } });
       if (!current) throw new NotFoundException('Student profile not found.');
+      const currentCategories = normalizeTalentCategories(current.talentCategories, current.talentCategory);
+      const nextCategories = talentCategories !== undefined ? [...talentCategories] : talentCategory !== undefined ? [talentCategory] : currentCategories;
+      const categoriesChanged = talentCategories !== undefined || talentCategory !== undefined;
       assertCgpa(changedFields.cgpa !== undefined ? changedFields.cgpa : current.cgpa, changedFields.cgpaScale ?? current.cgpaScale ?? 4, 'Profile');
       const providedSocial = socialLinks === undefined ? undefined : Object.fromEntries(
         Object.entries(socialLinks).filter(([key, value]) => ['linkedin', 'github', 'portfolio', 'additional'].includes(key) && value !== undefined),
@@ -115,7 +136,7 @@ export class ProfileService {
         Object.entries(familyBackground).filter(([key, value]) => Object.hasOwn(currentFamily, key) && value !== undefined),
       );
       const nextFamily = providedFamily === undefined ? undefined : normalizeFamilyBackground({ ...currentFamily, ...providedFamily });
-      const next = { ...current, ...changedFields, skills: skills ?? current.skills.map(skill => skill.name) };
+      const next = { ...current, ...changedFields, talentCategories: nextCategories, talentCategory: nextCategories[0] ?? '', skills: skills ?? current.skills.map(skill => skill.name) };
       if (next.directoryPublished) {
         if (current.user.role !== 'STUDENT' || current.user.status !== 'ACTIVE' || !current.user.emailVerifiedAt) {
           throw new ForbiddenException('Verify your email before publishing an active student profile.');
@@ -123,12 +144,13 @@ export class ProfileService {
         const missing = [
           !next.university.trim() && 'university', !next.department.trim() && 'subject or department',
           !next.objective.trim() && 'career objective', !next.skills.length && 'at least one skill',
-          !TALENT_CATEGORY_SLUGS.some(slug => slug === next.talentCategory) && 'career category',
+          !next.talentCategories.length && 'at least one career category',
         ].filter(Boolean);
         if (missing.length) throw new BadRequestException(`Complete your ${missing.join(', ')} before publishing. Unpublish your profile to save an incomplete draft.`);
       }
       return tx.studentProfile.update({ where: { userId }, data: {
         ...changedFields,
+        ...(categoriesChanged ? { talentCategories: nextCategories, talentCategory: nextCategories[0] } : {}),
         ...(nextFamily !== undefined ? { familyBackground: JSON.parse(JSON.stringify(nextFamily)) as Prisma.InputJsonValue } : {}),
         ...(nextSocial !== undefined ? { socialLinks: JSON.parse(JSON.stringify(nextSocial)) as Prisma.InputJsonValue } : {}),
         ...(skills !== undefined ? { skills: { deleteMany: {}, create: skills.map(name => ({ name })) } } : {}),
