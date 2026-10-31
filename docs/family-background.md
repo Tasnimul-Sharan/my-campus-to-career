@@ -1,12 +1,11 @@
 # Optional family background
 
-Students can save family or guardian information from **My profile → Family background**. Every field is optional. The section uses the existing **Save profile** action and does not affect profile completion or talent-directory publishing requirements.
+Students can save family information from **My profile → Family background**. Every field is optional. The section uses the existing **Save profile** action and does not affect profile completion or talent-directory publishing requirements.
 
-Supported fields:
+Fields shown in the profile form:
 
 - Father's name and occupation, each up to 100 characters.
 - Mother's name and occupation, each up to 100 characters.
-- Guardian's name, up to 100 characters, and relationship to the guardian, up to 60 characters.
 - Religion, optional free text up to 100 characters; no religion is selected or inferred by default.
 - Number of siblings, a whole number from 0 to 50, or blank.
 - Additional family information, up to 1,000 characters.
