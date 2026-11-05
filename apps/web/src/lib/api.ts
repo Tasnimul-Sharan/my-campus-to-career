@@ -43,6 +43,9 @@ export type User = { id: string; name: string; email: string; role: 'STUDENT' | 
 export type AdditionalSocialLink = { label: string; url: string };
 export type SocialLinks = { linkedin?: string; github?: string; portfolio?: string; additional?: AdditionalSocialLink[] };
 export type Education = { institution: string; degree: string; field: string; startYear?: number; endYear?: number; cgpa?: number | null; cgpaScale?: 4 | 5 };
+export type StudentAddress = { streetAddress: string; postOffice: string; policeStation: string; district: string };
+export type ProfileAddresses = { permanent: StudentAddress; current: StudentAddress };
+export const emptyAddress: StudentAddress = { streetAddress: '', postOffice: '', policeStation: '', district: '' };
 export type FamilyBackground = {
   fatherName: string; fatherOccupation: string; motherName: string; motherOccupation: string;
   guardianName: string; guardianRelationship: string; religion: string; siblings: number | null; additionalInformation: string;
@@ -52,5 +55,6 @@ export type Profile = {
   skills: string[]; socialLinks: SocialLinks; activities: string; educations: Education[];
   talentCategory: '' | import('./talent').TalentCategory; talentCategories: import('./talent').TalentCategory[]; headline: string; availability: import('./talent').TalentAvailability; directoryPublished: boolean;
   familyBackground: FamilyBackground;
+  addresses: ProfileAddresses;
 };
-export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, cgpa: null, cgpaScale: 4, skills: [], socialLinks: { additional: [] }, activities: '', educations: [], talentCategory: '', talentCategories: [], headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' } };
+export const emptyProfile: Profile = { phone: '', city: '', objective: '', university: '', department: '', semester: '', degree: '', passingYear: null, cgpa: null, cgpaScale: 4, skills: [], socialLinks: { additional: [] }, activities: '', educations: [], talentCategory: '', talentCategories: [], headline: '', availability: 'OPEN_TO_OPPORTUNITIES', directoryPublished: false, familyBackground: { fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '', religion: '', siblings: null, additionalInformation: '' }, addresses: { permanent: { ...emptyAddress }, current: { ...emptyAddress } } };

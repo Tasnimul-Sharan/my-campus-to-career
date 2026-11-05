@@ -1,0 +1,21 @@
+.optional { display: inline-flex; vertical-align: middle; margin-left: 7px; padding: 2px 8px; border: 1px solid #dce4d2; border-radius: 20px; background: #f4f7ed; color: #74866b; font-size: 9px; font-weight: 500; line-height: 1.6; }
+.privacy { display: flex; align-items: flex-start; gap: 9px; margin: -2px 0 23px; padding: 13px 15px; border: 1px solid #dfe7d6; border-radius: 8px; background: #f5f8ef; color: #728567; font-size: 11px; line-height: 1.8; }
+.privacy svg { flex-shrink: 0; margin-top: 3px; color: #729366; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.card { min-width: 0; padding: 19px; border: 1px solid #e0e5d7; border-radius: 10px; background: #fafbf6; }
+.cardHeading { display: flex; gap: 10px; align-items: center; padding-bottom: 17px; margin-bottom: 18px; border-bottom: 1px solid #e5e9dc; }
+.cardHeading h3 { margin: 0; color: #264d3f; font-size: 14px; line-height: 1.5; }
+.cardHeading p { margin: 3px 0 0; color: #85917c; font-size: 10px; line-height: 1.7; }
+.cardIcon { display: grid; place-items: center; flex-shrink: 0; width: 35px; height: 35px; border: 1px solid #dfe7d6; border-radius: 9px; background: #f0f5e8; color: #718f64; }
+.fields { display: grid; gap: 17px; min-width: 0; border: 0; padding: 0; margin: 0; }
+.fields > div { min-width: 0; }
+.fields input, .fields textarea, .select { width: 100%; min-width: 0; }
+.fields:disabled input, .fields:disabled textarea, .fields:disabled select { background: #eef1e7; color: #7c8972; cursor: default; opacity: 1; }
+.select { min-height: 44px; padding: 10px 30px 10px 12px; border: 1px solid #d9dfd3; border-radius: 6px; background-color: #fff; color: #28493b; font: inherit; font-size: 12px; line-height: 1.5; }
+.select:focus { border-color: #86a276; outline: 0; box-shadow: 0 0 0 3px #86a27620; }
+.copyOption { display: flex; gap: 9px; align-items: flex-start; margin: 0 0 19px; color: #49613e; font-size: 11px; font-weight: 500; line-height: 1.7; cursor: pointer; }
+.copyOption input { flex-shrink: 0; width: 16px; height: 16px; margin: 2px 0 0; accent-color: #4d7058; }
+.copyHelp { margin: 15px 0 0; color: #839177; font-size: 10px; line-height: 1.8; }
+@media (max-width: 1200px) { .cards { grid-template-columns: minmax(0, 1fr); }.card { padding: 19px; } }
+@media (max-width: 600px) { .card { padding: 16px; }.select { min-height: 47px; font-size: 13px; }.cardHeading h3 { font-size: 14px; }.copyOption { font-size: 12px; } }
+@media (max-width: 450px) { .optional { margin-left: 3px; padding: 2px 6px; font-size: 8px; }.privacy { padding: 12px; font-size: 10px; }.card { padding: 14px; }.cardHeading { gap: 8px; } }

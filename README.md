@@ -89,6 +89,8 @@ Students can choose one to three career categories and publish their profile fro
 
 The optional **Family background** section saves parent information, religion and a short note privately with the student's account. It is excluded from public talent profiles and does not affect profile completion. See the [family background guide](docs/family-background.md).
 
+The optional **Address details** section saves permanent and current addresses privately, with 64 Bangladesh district options and a **Same as permanent address** shortcut. See the [address guide](docs/profile-addresses.md).
+
 Students can add optional CGPA and a grading scale to their education and qualifications, plus up to eight extra labeled social links. See the [education and social links guide](docs/profile-education-links.md).
 
 ## Verify changes
@@ -104,6 +106,7 @@ npm run test:documents
 npm run test:profile-pictures
 npm run test:talent
 npm run test:family
+npm run test:addresses
 npm run test:profile-enhancements
 npm run test:career-categories
 npm run test:integration

@@ -6,6 +6,7 @@ import { SessionGuard, StudentGuard } from './security';
 import { AuthenticatedRequest, publicUser } from './session-types';
 import { config } from './config';
 import { TALENT_CATEGORY_SLUGS } from './talent-categories';
+import { mergeAddresses, normalizeAddresses } from './addresses';
 
 const profileInclude = { educations: true, skills: true } as const;
 type FullProfile = Prisma.StudentProfileGetPayload<{ include: typeof profileInclude }>;
@@ -97,7 +98,7 @@ function serialize(profile: FullProfile) {
     department: profile.department, semester: profile.semester, degree: profile.degree, passingYear: profile.passingYear,
     cgpa: profile.cgpa == null ? null : Number(profile.cgpa), cgpaScale: profile.cgpaScale ?? 4,
     headline: profile.headline, talentCategory: talentCategories[0] ?? '', talentCategories, availability: profile.availability, directoryPublished: profile.directoryPublished,
-    socialLinks: normalizeSocialLinks(profile.socialLinks), familyBackground: normalizeFamilyBackground(profile.familyBackground),
+    socialLinks: normalizeSocialLinks(profile.socialLinks), familyBackground: normalizeFamilyBackground(profile.familyBackground), addresses: normalizeAddresses(profile.addresses),
     activities: profile.activities, skills: profile.skills.map(skill => skill.name),
     educations: profile.educations.map(({ institution, degree, field, startYear, endYear, cgpa, cgpaScale }) => ({ institution, degree, field, startYear, endYear, cgpa: cgpa == null ? null : Number(cgpa), cgpaScale: cgpaScale ?? 4 })) };
 }
@@ -110,7 +111,7 @@ export class ProfileService {
   }
   async update(userId: string, dto: ProfileDto) {
     if (dto.educations?.some(e => e.startYear && e.endYear && e.endYear < e.startYear)) throw new BadRequestException('Education end year must not be earlier than its start year.');
-    const { skills, educations, socialLinks, familyBackground, talentCategory, talentCategories, ...fields } = dto;
+    const { skills, educations, socialLinks, familyBackground, addresses, talentCategory, talentCategories, ...fields } = dto;
     if (talentCategories !== undefined) assertTalentCategories(talentCategories);
     if (talentCategory !== undefined && !isTalentCategory(talentCategory)) throw new BadRequestException('Choose a valid career category.');
     for (const entry of educations ?? []) assertCgpa(entry.cgpa, entry.cgpaScale ?? 4, 'Qualification');
@@ -136,6 +137,7 @@ export class ProfileService {
         Object.entries(familyBackground).filter(([key, value]) => Object.hasOwn(currentFamily, key) && value !== undefined),
       );
       const nextFamily = providedFamily === undefined ? undefined : normalizeFamilyBackground({ ...currentFamily, ...providedFamily });
+      const nextAddresses = addresses === undefined ? undefined : mergeAddresses(current.addresses, addresses);
       const next = { ...current, ...changedFields, talentCategories: nextCategories, talentCategory: nextCategories[0] ?? '', skills: skills ?? current.skills.map(skill => skill.name) };
       if (next.directoryPublished) {
         if (current.user.role !== 'STUDENT' || current.user.status !== 'ACTIVE' || !current.user.emailVerifiedAt) {
@@ -152,6 +154,7 @@ export class ProfileService {
         ...changedFields,
         ...(categoriesChanged ? { talentCategories: nextCategories, talentCategory: nextCategories[0] } : {}),
         ...(nextFamily !== undefined ? { familyBackground: JSON.parse(JSON.stringify(nextFamily)) as Prisma.InputJsonValue } : {}),
+        ...(nextAddresses !== undefined ? { addresses: JSON.parse(JSON.stringify(nextAddresses)) as Prisma.InputJsonValue } : {}),
         ...(nextSocial !== undefined ? { socialLinks: JSON.parse(JSON.stringify(nextSocial)) as Prisma.InputJsonValue } : {}),
         ...(skills !== undefined ? { skills: { deleteMany: {}, create: skills.map(name => ({ name })) } } : {}),
         ...(educations !== undefined ? { educations: { deleteMany: {}, create: educations.map(entry => ({ ...entry, cgpa: entry.cgpa ?? null, cgpaScale: entry.cgpaScale ?? 4 })) } } : {}),

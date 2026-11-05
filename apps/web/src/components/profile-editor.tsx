@@ -27,12 +27,15 @@ import { TALENT_AVAILABILITIES, TALENT_CATEGORIES } from "@/lib/talent";
 import { FamilyBackgroundSection } from "./family-background";
 import { AcademicGradeFields } from "./academic-grade";
 import { OnlinePresenceSection } from "./online-presence";
+import { AddressDetailsSection } from "./address-details";
+import { normalizeProfileAddresses } from "@/lib/addresses";
 
 function normalize(profile: Partial<Profile>): Profile {
   const result = {
     ...emptyProfile,
     ...profile,
     skills: profile.skills || [],
+    addresses: normalizeProfileAddresses(profile.addresses),
     socialLinks: { ...profile.socialLinks, additional: Array.isArray(profile.socialLinks?.additional) ? profile.socialLinks.additional.map(link => ({ label: link.label || "", url: link.url || "" })) : [] },
     cgpa: profile.cgpa ?? null,
     cgpaScale: profile.cgpaScale === 5 ? 5 as const : 4 as const,
@@ -344,6 +347,10 @@ export function ProfileEditor() {
                 </Field>
               </div>
             </section>
+            <AddressDetailsSection
+              value={profile.addresses}
+              onChange={(value) => change("addresses", value)}
+            />
             <FamilyBackgroundSection
               value={profile.familyBackground}
               onChange={(value) => change("familyBackground", value)}
@@ -357,7 +364,7 @@ export function ProfileEditor() {
                   <h2>Education details</h2>
                   <p>Your university and academic background.</p>
                 </div>
-                <span className="section-index">03</span>
+                <span className="section-index">04</span>
               </div>
               <div className="form-grid">
                 {profileInput(
@@ -504,7 +511,7 @@ export function ProfileEditor() {
                   <h2>Skills and activities</h2>
                   <p>What you can do and how you get involved on campus.</p>
                 </div>
-                <span className="section-index">04</span>
+                <span className="section-index">05</span>
               </div>
               <Field
                 id="skill"
@@ -608,20 +615,23 @@ export function ProfileEditor() {
                 <a href="#personal">
                   01 <span>Personal details</span>
                 </a>
+                <a href="#addresses">
+                  02 <span>Address details</span>
+                </a>
                 <a href="#family">
-                  02 <span>Family background</span>
+                  03 <span>Family background</span>
                 </a>
                 <a href="#education">
-                  03 <span>Education details</span>
+                  04 <span>Education details</span>
                 </a>
                 <a href="#skills">
-                  04 <span>Skills and activities</span>
+                  05 <span>Skills and activities</span>
                 </a>
                 <a href="#links">
-                  05 <span>Online presence</span>
+                  06 <span>Online presence</span>
                 </a>
                 <a href="#career-interests">
-                  06 <span>Career interests</span>
+                  07 <span>Career interests</span>
                 </a>
               </nav>
             </div>

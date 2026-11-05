@@ -120,6 +120,7 @@ model StudentProfile {
   directoryPublished Boolean @default(false)
   socialLinks Json        @default("{}")
   familyBackground Json   @default("{}")
+  addresses   Json        @default("{}")
   activities  String      @default("") @db.VarChar(2000)
   educations  Education[]
   skills      Skill[]

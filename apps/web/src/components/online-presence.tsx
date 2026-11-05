@@ -26,7 +26,7 @@ export function OnlinePresenceSection({ value, onChange }: { value: SocialLinks;
     onChange({ ...value, additional: additional.map((link, i) => i === index ? { ...link, [key]: next } : link) });
   }
   return <section className="panel form-section" id="links" aria-labelledby="online-presence-heading">
-    <div className="form-section-heading"><span className="section-icon"><Link2 size={22} /></span><div><h2 id="online-presence-heading">Online presence</h2><p>Add relevant social and portfolio links.</p></div><span className="section-index">05</span></div>
+    <div className="form-section-heading"><span className="section-icon"><Link2 size={22} /></span><div><h2 id="online-presence-heading">Online presence</h2><p>Add relevant social and portfolio links.</p></div><span className="section-index">06</span></div>
     <p className={styles.sharing}>Your saved links appear on your public profile when you publish it. Add only links you want visitors to see.</p>
     <div className="form-grid">
       {(['linkedin', 'github', 'portfolio'] as const).map(key => <Field key={key} id={key} label={key === 'linkedin' ? 'LinkedIn' : key === 'github' ? 'GitHub' : 'Portfolio / Website'} className={key === 'portfolio' ? 'full-width' : ''}>

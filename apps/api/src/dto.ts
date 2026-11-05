@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
 import { TalentAvailability, UserStatus } from '@prisma/client';
 import { TALENT_CATEGORY_SLUGS } from './talent-categories';
+import { BANGLADESH_DISTRICTS } from './addresses';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 
@@ -56,7 +57,18 @@ export class FamilyBackgroundDto {
   @ValidateIf((_, v) => v !== undefined && v !== null) @IsInt() @Min(0) @Max(50) siblings?: number | null;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(1000) additionalInformation?: string;
 }
+export class AddressDto {
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(300) streetAddress?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) postOffice?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(100) policeStation?: string;
+  @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(['', ...BANGLADESH_DISTRICTS], { message: 'Choose a valid Bangladesh district or leave it blank.' }) district?: string;
+}
+export class AddressesDto {
+  @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => AddressDto) permanent?: AddressDto;
+  @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => AddressDto) current?: AddressDto;
+}
 export class ProfileDto {
+  @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => AddressesDto) addresses?: AddressesDto;
   @ValidateIf((_, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => FamilyBackgroundDto) familyBackground?: FamilyBackgroundDto;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @MaxLength(120) headline?: string;
   @Transform(trim) @ValidateIf((_, v) => v !== undefined) @IsString() @IsIn(TALENT_CATEGORY_SLUGS) talentCategory?: string;

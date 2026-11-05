@@ -14,7 +14,7 @@ export function FamilyBackgroundSection({ value, onChange }: {
   }
 
   return <section className="panel form-section" id="family" aria-labelledby="family-background-heading">
-    <div className="form-section-heading"><span className="section-icon"><UsersRound size={22} /></span><div><h2 id="family-background-heading">Family background <span className={styles.optional}>Optional</span></h2><p>Share only the family details you would like to include.</p></div><span className="section-index">02</span></div>
+    <div className="form-section-heading"><span className="section-icon"><UsersRound size={22} /></span><div><h2 id="family-background-heading">Family background <span className={styles.optional}>Optional</span></h2><p>Share only the family details you would like to include.</p></div><span className="section-index">03</span></div>
     <p className={styles.privacy} id="family-background-privacy"><LockKeyhole size={17} /><span>Family information, including religion, stays private and is never shown on your public talent profile. Every field in this section is optional.</span></p>
     <div className="form-grid" role="group" aria-label="Optional family details" aria-describedby="family-background-privacy">
       <Field id="fatherName" label="Father's name"><input id="fatherName" type="text" value={value.fatherName} onChange={event => update('fatherName', event.target.value)} maxLength={100} autoComplete="off" placeholder="Father's full name" /></Field>
