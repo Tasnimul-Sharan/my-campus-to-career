@@ -23,13 +23,22 @@ npm run dev
 
 | Service | Local address / location |
 | --- | --- |
-| Website | http://127.0.0.1:3000 |
-| NestJS API | http://127.0.0.1:4000/api/v1 |
+| Website | http://localhost:3000 or http://127.0.0.1:3000 |
+| NestJS API | `http://127.0.0.1:<PORT>/api/v1`; see `PORT` in `apps/api/.env` (setup default: `4000`) |
 | PostgreSQL | 127.0.0.1:5442, database `campus_to_career` |
 | Development email | `.local/mail/` |
 | Local runtime state | `.local/` |
 
-Keep `127.0.0.1` consistent when opening the app; switching between it and `localhost` changes the browser cookie origin. The web app forwards `/api/v1/*` requests to the API.
+Choose one local website address and keep using it: `localhost` and `127.0.0.1` have separate browser cookies. In explicit development mode, both exact loopback names are accepted on the configured website port. Production accepts only its configured `APP_ORIGIN`. The web app forwards `/api/v1/*` requests to the API; its `API_ORIGIN` must match the API's actual port. This checkout currently uses API port `4001`.
+
+For a local run using the compiled production frontend, stop the existing development terminal with Ctrl+C, then run from the repository root:
+
+```powershell
+npm run build
+npm start
+```
+
+Both commands are required: a successful build creates files but does not start servers. `npm start` launches both the built API and website. Use `npm run dev` for automatic reload while editing. Run one of these server modes at a time; starting a second instance on the same ports produces an address-in-use error.
 
 The local database helper uses an isolated PostgreSQL data directory under `.local/postgres/`. It detects the installed Scoop PostgreSQL binaries or binaries on `PATH`. For another installation, set `POSTGRES_BIN` to its `bin` directory before running `db:start`. Use `npm run db:status` to inspect the project database and `npm run db:stop` to stop it. Stop the development web/API processes with Ctrl+C in their terminal.
 
@@ -107,6 +116,8 @@ npm run test:profile-pictures
 npm run test:talent
 npm run test:family
 npm run test:addresses
+npm run test:origins
+npm run test:web-api
 npm run test:profile-enhancements
 npm run test:career-categories
 npm run test:integration
@@ -160,6 +171,8 @@ and generated output while keeping workspace manifests and the root lockfile.
 Set `API_ORIGIN` in the Vercel Production environment to the actual hosted API
 origin, without `/api/v1`. Rebuild after changing it. Until the API is hosted,
 public pages can render but account/profile API operations will not work.
+
+On Vercel, builds reject a missing, local, non-HTTPS or path-containing `API_ORIGIN`. Use the bare hosted origin, for example `https://my-campus-to-career.onrender.com`. A Ready frontend deployment alone does not verify API availability. Check `/api/v1/health` and `/api/v1/auth/csrf` through the deployed frontend: the latter must return JSON with a CSRF token and a session cookie before sign-in can work. HTTP 429 is a rate-limit response, and 502/503/504 indicates temporary server unavailability; these are separate from an invalid-password response.
 
 After confirming the existing project settings, deploy from the repository root:
 

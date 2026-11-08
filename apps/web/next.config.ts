@@ -1,9 +1,11 @@
 import type { NextConfig } from 'next';
+import { resolveApiOrigin } from './config/api-origin.mjs';
+
+const apiOrigin = resolveApiOrigin();
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    const origin = (process.env.API_ORIGIN || 'http://127.0.0.1:4000').replace(/\/$/, '');
-    return [{ source: '/api/v1/:path*', destination: `${origin}/api/v1/:path*` }];
+    return [{ source: '/api/v1/:path*', destination: `${apiOrigin}/api/v1/:path*` }];
   },
   poweredByHeader: false,
 };

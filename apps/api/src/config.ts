@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { resolve } from 'node:path';
+import { allowedAppOrigins } from './origins';
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -16,6 +17,7 @@ export function loadConfig() {
   const appUrl = new URL(required('APP_ORIGIN'));
   if (!['http:', 'https:'].includes(appUrl.protocol) || appUrl.username || appUrl.password) throw new Error('APP_ORIGIN must be an HTTP or HTTPS website origin without credentials.');
   const appOrigin = appUrl.origin;
+  const allowedOrigins = allowedAppOrigins(appOrigin, process.env.NODE_ENV);
   if (production && !appOrigin.startsWith('https://')) throw new Error('Production APP_ORIGIN must use HTTPS.');
   const emailMode = process.env.MAIL_MODE || process.env.EMAIL_MODE || 'file';
   if (!['file', 'smtp', 'gmail'].includes(emailMode)) throw new Error('MAIL_MODE must be file, smtp or gmail.');
@@ -48,7 +50,7 @@ export function loadConfig() {
   }
   const port = Number(process.env.API_PORT || process.env.PORT || 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid API_PORT.');
-  return { production, databaseUrl, sessionSecret, appOrigin, emailMode, sessionDriver, redisUrl, smtp, gmail, documents, port,
+  return { production, databaseUrl, sessionSecret, appOrigin, allowedOrigins, emailMode, sessionDriver, redisUrl, smtp, gmail, documents, port,
     host: process.env.API_HOST || process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1'), mailOutboxDir: resolve(process.env.MAIL_OUTBOX_DIR || '../../.local/mail'),
     sessionMaxAge: 1000 * 60 * 60 * 24 * 7 };
 }

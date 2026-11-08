@@ -22,9 +22,16 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     let csrfResponse: Response;
     try { csrfResponse = await fetch('/api/v1/auth/csrf', { credentials: 'include', cache: 'no-store' }); }
     catch { throw new ApiError(0, 'Unable to connect to the server. Check your connection and try again.'); }
-    if (!csrfResponse.ok) throw new ApiError(csrfResponse.status, 'Unable to complete the security check. Please try again.');
-    const csrf = await csrfResponse.json() as { csrfToken: string };
-    headers.set('X-CSRF-Token', csrf.csrfToken);
+    const securityError = 'Unable to complete the security check. Please try again.';
+    if (!csrfResponse.ok) throw new ApiError(csrfResponse.status, csrfResponse.status === 429
+      ? 'Too many attempts. Please wait a moment and try again.'
+      : [502, 503, 504].includes(csrfResponse.status)
+        ? 'The server is temporarily unavailable. Please try again in a moment.'
+        : securityError);
+    const csrf: unknown = await csrfResponse.json().catch(() => null);
+    const token = csrf && typeof csrf === 'object' && !Array.isArray(csrf) && 'csrfToken' in csrf ? csrf.csrfToken : undefined;
+    if (typeof token !== 'string' || token.length !== 64 || !/^[a-f0-9]{64}$/i.test(token)) throw new ApiError(csrfResponse.status, securityError);
+    headers.set('X-CSRF-Token', token);
     if (!(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   }
   let response: Response;

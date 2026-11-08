@@ -13,6 +13,7 @@ import { AppModule } from './app';
 import { config } from './config';
 import { csrfProtection } from './security';
 import { MailDeliveryError } from './mail-delivery';
+import { isAllowedRequestOrigin } from './origins';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -21,7 +22,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().disable('x-powered-by');
   if (config.production) app.set('trust proxy', 1);
   app.use(helmet());
-  app.enableCors({ origin: config.appOrigin, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'X-CSRF-Token'] });
+  app.enableCors({ origin: config.allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'X-CSRF-Token'] });
   let store: session.Store;
   if (config.sessionDriver === 'redis') {
     const client = createClient({ url: config.redisUrl });
@@ -42,7 +43,8 @@ async function bootstrap() {
     cookie: { httpOnly: true, secure: config.production, sameSite: 'lax', maxAge: config.sessionMaxAge, path: '/' } }));
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Cache-Control', 'no-store');
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') && req.get('origin') !== config.appOrigin) {
+    const origin = req.get('origin');
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && origin !== undefined && !isAllowedRequestOrigin(origin, config.allowedOrigins)) {
       return res.status(403).json({ statusCode: 403, message: 'Request origin is not allowed.' });
     }
     return next();
